@@ -21,6 +21,7 @@
 | **平台** | **仅 Android** | iOS 上没有 JIT、不允许 `fork`/`exec`、审核不允许下发可执行代码。三条里任意一条都足以否决,而这三条都不是靠工程能绕过去的。 |
 | **agent 能力面** | **没有 shell** | `node-pty` 是 `@deepseek-ai/dsh-subprocess-local` 的顶层静态 import,而 `subprocess` 是 `dsh-base` 出厂编排里的一行。手持端换一份不含该行的 composition,就永远不会加载它。换来的是:文件系统 + LLM + 会话 + 附件,能读能写能对话,不能跑命令。 |
 | **Node 从哪来** | **嵌进 apk** | dsh 要 Node ≥ 22。Termux 的 aarch64 仓库里 `nodejs 26.4.0` 和 `nodejs-lts 24.18.0` 都是现成的,证明 Node 22+ 在 bionic 上能跑;但 Termux 的二进制把前缀写死在 `/data/data/com.termux/files/usr`,不能直接搬,要按它的配方用自己的前缀重编。 |
+| **工作区** | **待定,但决定成败** | Android 分区存储下应用默认只看得见自己的数据目录,agent 会没有对象可操作。`MANAGE_EXTERNAL_STORAGE`(需放弃上架 Play)能直接给出真实路径;上架则要为 SAF 写一个 `FileSystem` 后端。**这比没有 shell 严重得多。** |
 | **UI** | **WebView + 自己的 client 名册** | dsh 的浏览器客户端是一份由 host 推送的插件名册,shell 本身不做任何编排决策。所以手机 UI 不是 fork 上游布局,而是换一份名册:去掉三栏 AppFrame,换成移动布局。 |
 | **host↔client 传输** | **进程内,不走网络** | `@deepseek-ai/dsh-client-connection` 的 in-process carrier 与浏览器 carrier 满足同一抽象。同一台设备上没有远程,也就没有鉴权层要写——上游那道 `/api` trust fence 天然是 loopback。 |
 

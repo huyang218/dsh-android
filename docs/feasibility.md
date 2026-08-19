@@ -102,6 +102,28 @@ node-pty 就不在图里。
 "is a reachability policy, not authentication"。全本地形态下这些都不构成约束——
 但它也意味着**这套东西一旦要远程,鉴权得自己写**,这正是本项目不走远程的原因之一。
 
+## 四点五、真正的约束是文件系统,不是 shell
+
+砍掉 shell 之后剩下的是"文件系统 + LLM + 会话 + 附件"。但在 Android 上,
+**这句话里的"文件系统"默认是空的**:分区存储下应用只能自由读写自己的数据目录,
+别的应用的数据看不见,共享存储要走 SAF 或 MediaStore。
+
+也就是说,一个没有工作区的 agent 不是"减配",是**没有对象**。这比没有 shell 严重得多,
+而且它决定这个应用值不值得做。
+
+三条路,工作量差一个数量级:
+
+| 路 | 前提 | dsh 侧的工作 |
+|---|---|---|
+| **`MANAGE_EXTERNAL_STORAGE`** | 不上 Google Play(Play 只把这个权限开给文件管理器类应用),从 GitHub 直发 apk——和 `dsh-desktop` 的分发方式一致 | **可能为零**:拿得到真实 POSIX 路径,`dsh-fs-local` 也许原样可用 |
+| **SAF(Storage Access Framework)** | 能上架 | 要为 SAF 写一个 `FileSystem` 后端。`@deepseek-ai/dsh-fs` 是显式的 provider 契约层——README 原文 "A backend subclasses `FileSystem` and implements twelve primitives",且已有 `fs-local` / `fs-sandbox` / `fs-e2b` 三个实现,所以这是架构预留的口子,不是 hack。但 SAF 没有 POSIX 路径语义,路径映射是真工作量 |
+| **只用应用私有目录** | 无 | 零。但 agent 只能对着用户手动导进来的文件干活 |
+
+**不上架同时解开两道锁**:文件系统这道,以及 W^X 那道——Play 强制较新的 targetSdk,
+自行分发则可以像 Termux 那样停在 targetSdk 28,可执行文件的位置限制随之消失。
+
+考虑到 `dsh-desktop` 本来就是 GitHub 直发的非官方项目,**走同样的分发方式是省力的默认选择**。
+
 ## 五、iOS:排除
 
 不是难,是不可能:

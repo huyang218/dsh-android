@@ -5,13 +5,18 @@
 
 ## 里程碑 0:两个分叉点先定
 
-在写任何代码之前,只有这两件事要有答案。它们决定后面所有工作的形状:
+在写任何代码之前,只有这几件事要有答案。它们决定后面所有工作的形状:
 
-1. **Node 怎么进 apk** —— 独立进程(可执行文件放进 `lib/arm64-v8a/`,靠 native lib
+1. ~~**手机上的 agent 要不要 shell**~~ —— **已定:不要。** 于是 composition 里不放
+   `subprocess` / `sandbox` / bash / pwsh / terminal,`node-pty` 不进依赖图。
+2. **上不上 Google Play** —— 这是现在最大的那个岔口,因为它同时决定两件事:
+   agent 有没有真实工作区(`MANAGE_EXTERNAL_STORAGE` vs 要自己写 SAF 后端),
+   以及可执行文件能放在哪(targetSdk 28 vs W^X 限制)。见
+   [feasibility.md 第四点五](docs/feasibility.md#四点五真正的约束是文件系统不是-shell)。
+   **倾向:不上架,GitHub 直发,和 `dsh-desktop` 一致**——两道锁一起解开。
+3. **Node 怎么进 apk** —— 独立进程(可执行文件放进 `lib/arm64-v8a/`,靠 native lib
    目录的执行权限绕开 W^X),还是嵌入式(`libnode.so` + embedder API,在线程里起,
-   完全不 exec)。见 [feasibility.md 的风险表](docs/feasibility.md#六未解决的风险)。
-2. **手机上的 agent 要不要 shell** —— 定"不要",方案就是现在这个;定"要",
-   就得额外为 bionic 出 `node-pty` 构建,而且要面对 Android 上没有 landlock 的沙箱降级。
+   完全不 exec)。若第 2 条定为不上架、targetSdk 停在 28,这一条的压力大幅下降。
 
 ## 里程碑 1:Node 在手机上把 dsh 起起来(证伪点)
 
