@@ -1,0 +1,5 @@
+.DS_Store
+build/
+.gradle/
+local.properties
+node_modules/
