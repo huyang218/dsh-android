@@ -3,20 +3,16 @@
 原则:**每个里程碑都要能被证伪。** 顺序是按"哪一步失败最贵"排的——先撞最可能
 推翻方案的那面墙,不要等 UI 做完了才发现 Node 起不来。
 
-## 里程碑 0:两个分叉点先定
+## 里程碑 0:分叉点 —— 已全部定完
 
-在写任何代码之前,只有这几件事要有答案。它们决定后面所有工作的形状:
-
-1. ~~**手机上的 agent 要不要 shell**~~ —— **已定:不要。** 于是 composition 里不放
+1. **手机上的 agent 要不要 shell** —— **不要。** composition 里不放
    `subprocess` / `sandbox` / bash / pwsh / terminal,`node-pty` 不进依赖图。
-2. **上不上 Google Play** —— 这是现在最大的那个岔口,因为它同时决定两件事:
-   agent 有没有真实工作区(`MANAGE_EXTERNAL_STORAGE` vs 要自己写 SAF 后端),
-   以及可执行文件能放在哪(targetSdk 28 vs W^X 限制)。见
-   [feasibility.md 第四点五](docs/feasibility.md#四点五真正的约束是文件系统不是-shell)。
-   **倾向:不上架,GitHub 直发,和 `dsh-desktop` 一致**——两道锁一起解开。
-3. **Node 怎么进 apk** —— 独立进程(可执行文件放进 `lib/arm64-v8a/`,靠 native lib
-   目录的执行权限绕开 W^X),还是嵌入式(`libnode.so` + embedder API,在线程里起,
-   完全不 exec)。若第 2 条定为不上架、targetSdk 停在 28,这一条的压力大幅下降。
+2. **上不上 Google Play** —— **不上,GitHub 直发 apk**,和 `dsh-desktop` 一致。
+   理由与代价见 [packaging.md](docs/packaging.md):它同时解开文件系统和 W^X 两道锁。
+3. **Node 怎么进 apk** —— 由第 2 条决定:**独立进程**,从应用数据目录直接 exec,
+   由前台服务持有。不必走 `libnode.so` + embedder 那条路。
+
+`targetSdk = 28`(`compileSdk` 用最新),沿用 Termux 验证过多年的姿势。
 
 ## 里程碑 1:Node 在手机上把 dsh 起起来(证伪点)
 
