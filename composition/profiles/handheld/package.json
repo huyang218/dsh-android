@@ -5,9 +5,7 @@
     "profile": {
       "bundles": [
         "@deepseek-ai/dsh-base",
-        "@deepseek-ai/dsh-web-app",
-        "dsh-plugin-storage-no-hardlink",
-        "dsh-plugin-mobile-layout"
+        "@deepseek-ai/dsh-web-app"
       ]
     }
   }

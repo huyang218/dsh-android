@@ -133,19 +133,67 @@ mkdir -p "$HOME_DIR/profiles/handheld" "$HOME_DIR/.agent-presets"
 rsync -a "$ROOT/composition/profiles/handheld/" "$HOME_DIR/profiles/handheld/"
 rsync -a "$ROOT/composition/agent-presets/handheld" "$HOME_DIR/.agent-presets/"
 
-# The two plugins this repo owns must resolve from the profile directory: the
-# loader looks in the installation first and the profile second, and neither
-# of these ships with dsh. Vendored as real directories — `npm link` would be a
+# The plugins this repo owns must resolve from the profile directory: the
+# loader looks in the installation first and the profile second, and none of
+# these ship with dsh. Vendored as real directories — `npm link` would be a
 # symlink to a checkout that does not exist on a phone.
-for plugin in mobile-layout storage-no-hardlink; do
-  name=$(sed -n 's/.*"name": "\(.*\)".*/\1/p' "$ROOT/packages/$plugin/package.json" | head -1)
+#
+# DISCOVERED, NOT LISTED. Adding a plugin used to mean editing two places — this
+# script and the profile's `bundles` — and forgetting the second one produced a
+# plugin that is present on the phone and never mounted, which looks like the
+# plugin being broken. Now a directory under packages/ that declares
+# `dsh.bundle.patch` is in, and nothing else has to be touched.
+DISCOVERED=$(node -e '
+  const fs = require("fs"), path = require("path")
+  const dir = path.join(process.argv[1], "packages")
+  const found = []
+  for (const entry of fs.readdirSync(dir).sort()) {
+    const manifest = path.join(dir, entry, "package.json")
+    if (!fs.existsSync(manifest)) continue
+    const pkg = JSON.parse(fs.readFileSync(manifest, "utf8"))
+    const dsh = pkg.dsh ?? {}
+    const handheld = dsh.handheld ?? {}
+    if (handheld.skip) continue
+    // A package without a bundle patch is not a loader row: it has nothing to
+    // say about the composition, so shipping it would only add weight.
+    if (!dsh.bundle?.patch) continue
+    if (!fs.existsSync(path.join(dir, entry, dsh.bundle.patch))) {
+      console.error(`${entry}: dsh.bundle.patch 指向的 ${dsh.bundle.patch} 不存在`)
+      process.exit(1)
+    }
+    // Order decides who patches a shared row last. Default 100; a plugin that
+    // must come after another says so in its own manifest rather than in a
+    // list somewhere else.
+    found.push({ entry, name: pkg.name, order: handheld.order ?? 100 })
+  }
+  found.sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+  for (const p of found) console.log(`${p.entry}\t${p.name}`)
+' "$ROOT")
+
+PLUGIN_NAMES=""
+while IFS=$'\t' read -r entry name; do
+  [ -n "$entry" ] || continue
   dest=$HOME_DIR/profiles/handheld/node_modules/$name
   mkdir -p "$dest"
   # Ship what the package declares in `files`, not the whole directory: tests
   # and scratch files have no business on a phone.
-  rsync -a --exclude test --exclude node_modules "$ROOT/packages/$plugin/" "$dest/"
-  echo "    $name"
-done
+  rsync -a --exclude test --exclude node_modules "$ROOT/packages/$entry/" "$dest/"
+  PLUGIN_NAMES="$PLUGIN_NAMES $name"
+  echo "    $name  (packages/$entry)"
+done <<< "$DISCOVERED"
+
+# The profile's committed package.json lists only what dsh itself provides;
+# this repo's own plugins are appended here, in the discovered order, so the two
+# never disagree.
+node -e '
+  const fs = require("fs")
+  const [manifest, ...names] = process.argv.slice(1)
+  const pkg = JSON.parse(fs.readFileSync(manifest, "utf8"))
+  const bundles = pkg.dsh.profile.bundles
+  for (const name of names) if (!bundles.includes(name)) bundles.push(name)
+  fs.writeFileSync(manifest, JSON.stringify(pkg, null, 2) + "\n")
+' "$HOME_DIR/profiles/handheld/package.json" $PLUGIN_NAMES
+
 tar -C "$STAGE" -cf "$ASSETS/composition.tar" dsh-home
 
 # --------------------------------------------------------------- stamp ------
