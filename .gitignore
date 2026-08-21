@@ -4,3 +4,8 @@ build/
 local.properties
 node_modules/
 .playwright-mcp/
+
+# 签名材料:只在本机和 CI 的临时目录里存在,永远不进仓库
+keystore.properties
+*.jks
+*.keystore

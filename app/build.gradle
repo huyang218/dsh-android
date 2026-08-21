@@ -2,6 +2,13 @@ plugins {
     id 'com.android.application'
 }
 
+/** The signing key's location and passwords, absent on a machine that has none. */
+def releaseKeystore = rootProject.file('keystore.properties')
+def releaseKeystoreProperties = new Properties()
+if (releaseKeystore.exists()) {
+    releaseKeystore.withInputStream { releaseKeystoreProperties.load(it) }
+}
+
 android {
     namespace 'io.github.huyang218.dshandroid'
     compileSdk 35
@@ -24,13 +31,48 @@ android {
         buildConfig true
     }
 
+    // Release signing, when this machine has a key to sign with.
+    //
+    // The key never lives in the repo: `keystore.properties` and the store it
+    // points at are gitignored, and CI writes both from repository secrets
+    // before it builds. Distribution is GitHub-direct apk (docs/packaging.md),
+    // so the signature is the ONLY thing telling a user that an update comes
+    // from the same place the last one did — Play is not standing behind it.
+    //
+    // With no key present the release build still runs and produces an
+    // UNSIGNED apk. That is deliberate: a fresh clone must be able to build,
+    // and an unsigned artifact says so in its own file name
+    // (`app-release-unsigned.apk`) rather than quietly shipping something
+    // signed with the throwaway debug key.
+    signingConfigs {
+        if (releaseKeystore.exists()) {
+            release {
+                storeFile rootProject.file(releaseKeystoreProperties['storeFile'])
+                storePassword releaseKeystoreProperties['storePassword']
+                keyAlias releaseKeystoreProperties['keyAlias']
+                keyPassword releaseKeystoreProperties['keyPassword']
+            }
+        }
+    }
+
     buildTypes {
         debug {
             minifyEnabled false
         }
         release {
             minifyEnabled false
+            if (releaseKeystore.exists()) signingConfig signingConfigs.release
         }
+    }
+
+    lint {
+        // `lintVitalRelease` fails the release build on ExpiredTargetSdkVersion:
+        // "Google Play requires that apps target API level 33 or higher". That
+        // is a Play policy check, and this app does not go to Play — targetSdk
+        // 28 is the deliberate choice the whole project rests on
+        // (docs/packaging.md). Disabling the check is stating that out loud;
+        // leaving it on would mean no release apk can ever be built here.
+        disable 'ExpiredTargetSdkVersion'
     }
 
     compileOptions {

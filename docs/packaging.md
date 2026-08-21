@@ -54,6 +54,57 @@ apk
 Node 以**独立进程**运行,由前台服务持有;应用退出时整树收干净——和 `dsh-desktop`
 里 `src/server.js` 解决的是同一个问题,只是换了宿主。
 
+## 出包与签名:GitHub Actions
+
+工作流在 [`.github/workflows/apk.yml`](../.github/workflows/apk.yml)。push / PR /
+手动都跑,顺序是**先单测再打包**——两个插件包没有依赖,`node --test` 就是全部测试,
+所以这一步几乎不花时间,却能挡住"布局改坏了但 apk 照样出"。
+
+产物两个:`assembleDebug` 和 `assembleRelease`,都传成 artifact;打 `v*` tag 时额外
+建一个 GitHub Release。
+
+**这里出的 apk 现在还不能单独用**:里面没有 Node 二进制,也没有 dsh 运行时快照,
+装上去会一直等一个不存在的 host。运行时仍要用 adb 铺进应用数据目录
+([PLAN 线 A](../PLAN.md) 里"运行时打进 apk"那条还开着)。工作流的注释、Release
+说明里都写了这句,别让 artifact 看起来像成品。
+
+### 签名
+
+**分发形态决定了签名不是可选项**:GitHub 直发没有 Play 站在中间,签名是用户判断
+"这次更新和上次来自同一个人"的**唯一**依据。而 Android 不允许换签名覆盖安装——
+密钥丢了,所有已安装用户都得卸载重装。
+
+密钥不进仓库,两处各自取用:
+
+| 在哪 | 怎么拿到密钥 |
+|---|---|
+| 本机 | 仓库根目录的 `keystore.properties`(已 gitignore),指向同样 gitignore 掉的 `.jks` |
+| CI | 四个仓库 secret:`KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`,工作流在构建前写出这两个文件,构建后立刻删掉 |
+
+`app/build.gradle` 的判断只有一条:`keystore.properties` 在不在。**不在就照样构建,
+出未签名的 apk**——新克隆的人要能编得动,而未签名这件事会写在文件名里
+(`app-release-unsigned.apk`),不会悄悄用 debug 密钥糊过去。
+
+生成密钥和设置 secret 都是持有凭据的人自己做:
+
+```sh
+keytool -genkeypair -v -keystore release.jks -alias dsh-android \
+  -keyalg RSA -keysize 4096 -validity 10000
+printf 'storeFile=release.jks\nstorePassword=…\nkeyAlias=dsh-android\nkeyPassword=…\n' > keystore.properties
+gh secret set KEYSTORE_BASE64 < <(base64 -i release.jks)
+gh secret set KEYSTORE_PASSWORD; gh secret set KEY_ALIAS; gh secret set KEY_PASSWORD
+```
+
+`-validity 10000`(约 27 年)不是随手写的:密钥过期意味着无法再发布能覆盖安装的更新。
+
+### lint 那条必须关掉的规则
+
+`lintVitalRelease` 会用 `ExpiredTargetSdkVersion` 卡住 release 构建:
+"Google Play requires that apps target API level 33 or higher"。这是 **Play 的政策
+检查**,而这个应用不上 Play——`targetSdk 28` 正是整个方案的地基。所以
+`app/build.gradle` 里显式 `disable 'ExpiredTargetSdkVersion'`:把这件事说出口,
+而不是让 release apk 永远编不出来。
+
 ## 待验证
 
 这些都要在[线 A](../PLAN.md#线-anode-在手机上把-dsh-起起来证伪点)里用真机回答,不要靠文档推断:
