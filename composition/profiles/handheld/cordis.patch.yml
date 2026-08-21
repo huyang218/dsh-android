@@ -1,0 +1,44 @@
+# The handheld composition: no shell, but everything a shell-less agent still
+# needs.
+#
+# node-pty is a TOP-LEVEL static import in dsh-subprocess-local and ships no
+# bionic prebuild, so any composition keeping the `subprocess` row fails to
+# load on Android. It is one line in dsh-base's factory patch, not a kernel
+# dependency — which is the whole reason this project is possible.
+#
+# Removing it pulls two more rows with it, and getting the boundary wrong in
+# EITHER direction is silent until a session is created:
+#
+#  * `permission` (dsh-permission-presets) injects "shell" and then asserts
+#    `ctx.shell.sandboxMode !== undefined`. Leaving it in fails the boot with
+#    `1 entry did not activate ... waiting for service: shell`.
+#  * `fs-sandbox` must STAY. It is the row that provides `ctx.fs` — the name
+#    misleads: it injects only `sandboxPolicy`, never `subprocess`, and its
+#    "sandbox" is a per-call write fence over LocalFileSystem, not an executor.
+#    Dropping it takes the filesystem away from the very form whose whole
+#    point is "filesystem + LLM + sessions + attachments", and the symptom is
+#    remote: sessions fail to create with `tool-fs: waiting for fs`.
+- id: subprocess
+  disabled: true
+- id: sandbox
+  disabled: true
+- id: bash-sandbox
+  disabled: true
+- id: pwsh-sandbox
+  disabled: true
+- id: permission
+  disabled: true
+
+# HMR is a development affordance: the client-plugin reload chain mounts
+# cordis-plugin-hmr, which demands `--expose-internals`. A handheld build has
+# no rebuild watcher to react to, so the whole chain is off rather than the
+# Node process being launched with an internals flag to satisfy it.
+- id: client-hmr
+  disabled: true
+
+# The shipped presets both assume a shell (`standard` mounts tool-bash,
+# `minimal` IS a bash agent), and a preset that fails to mount fails
+# session.create — which the user sees as "picking a workspace does nothing".
+- id: agent-presets
+  config:
+    default: handheld

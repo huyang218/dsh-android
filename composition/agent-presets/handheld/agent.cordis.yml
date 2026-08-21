@@ -1,0 +1,45 @@
+# The `handheld` agent preset: what is left of a coding agent when the device
+# cannot give it a shell.
+#
+# Derived from the shipped `standard` preset by removal, not by invention. Two
+# families are gone and both for the same reason — they resolve services the
+# handheld host composition does not mount:
+#
+#   tool-bash / tool-pwsh   waiting for `shell`      (no subprocess → no pty)
+#   tool-fs-search          waiting for `subprocess` (its search shells out)
+#
+# tool-fs STAYS: `ctx.fs` comes from the `fs-sandbox` row, which never touches
+# subprocess. Losing bash costs the agent its commands; losing fs would cost it
+# its subject matter, and that is the difference between a reduced agent and a
+# pointless one.
+#
+# Losing tool-fs-search is the sharpest real cost here: the agent can read and
+# write any file it is pointed at, but cannot go looking. Directory listing
+# through tool-fs is the remaining way to explore.
+
+- id: persona
+  name: '@deepseek-ai/dsh-persona'
+  config:
+    text: >-
+      You are an agent powered by the {{model}} model, running on the user's
+      phone. Your working directory is {{cwd}}. You have no shell: there is no
+      command execution and no file search. You read and write files, look at
+      attachments, and talk. Say so plainly when a request needs a command
+      instead of pretending an equivalent.
+
+# Read, write, list. The one tool the handheld form is built around.
+- id: tool-fs
+  name: '@deepseek-ai/dsh-tool-fs'
+
+# Asking the person is more valuable, not less, on a device where the agent
+# cannot go find the answer itself.
+- id: tool-ask-user
+  name: '@deepseek-ai/dsh-tool-ask-user'
+
+- id: tool-todo
+  name: '@deepseek-ai/dsh-tool-todo'
+  config:
+    # Required by the plugin's schema — it has no default, and a preset that
+    # omits it fails to mount, which surfaces as session.create returning
+    # `agent-preset-invalid`.
+    allowParallelInProgress: true

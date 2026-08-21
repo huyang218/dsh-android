@@ -1,0 +1,3 @@
+name: 手持模式
+description: 无 Shell 的手持 Agent：文件读写、附件、会话与计划，不执行命令。
+order: 0
