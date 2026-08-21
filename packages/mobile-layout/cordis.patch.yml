@@ -1,0 +1,12 @@
+# dsh-plugin-mobile-layout bundle layer: take the 'root' slot off the desktop
+# AppFrame and give it to the handheld frame.
+#
+# Disabling ui-layout is not optional and not a preference: SlotCore seeds ONE
+# a-priori 'root' slot, and ui-layout also `ctx.reflect.provide("layout", …)`.
+# Two rows registering root — or providing the same service name — is a
+# collision, not a layering.
+- id: ui-layout
+  disabled: true
+- insert:
+    - id: mobile-layout
+      name: dsh-plugin-mobile-layout

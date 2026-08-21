@@ -1,0 +1,38 @@
+{
+  "name": "dsh-plugin-mobile-layout",
+  "version": "0.1.0",
+  "description": "Handheld shell frame for dsh's web client: replaces the three-column AppFrame with a single-column mobile layout, a sidebar drawer and a details sheet, keeping the same root-slot contract.",
+  "license": "MIT",
+  "keywords": ["dsh", "dsh-plugin", "deepseek-harness", "mobile", "layout", "web-ui"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huyang218/dsh-android.git",
+    "directory": "packages/mobile-layout"
+  },
+  "type": "module",
+  "main": "lib/index.js",
+  "scripts": {
+    "test": "node --test 'test/*.test.js'"
+  },
+  "files": ["lib", "client", "cordis.patch.yml", "LICENSE"],
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-ui-theme"
+      ]
+    },
+    "category": "ui/mobile"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1"
+  }
+}
