@@ -107,10 +107,12 @@ HTTP 200  11948 bytes  0.013751s
       `locale: NS` 的 `t` 座位,不自己发明 i18n。
 - [x] **选中会话自动收抽屉(已做)**:手机一次只能显示一样东西,导航和目的地不能
       同时占屏。桌面上侧边栏是常驻列,上游 AppFrame 没有这个动作可做。
-- [ ] **`ui-conversation` 把宽内容切掉**:它自己写死 `overflow:hidden auto`(只给纵向)。
-      桌面中栏够宽很少触发,390px 下一张 610px 的 markdown 表格被切掉且**够不着**。
-      页面级没有横向滚动(390/390,验收标准这条是过的),问题在内容容器里。
-      三个选项:推上游修、我们在名册里覆盖(类名带构建哈希,脆)、或内容层适配。**未定。**
+- [x] **`ui-conversation` 把宽内容切掉——表格和代码块已解决**(2026-08-21)。那三个
+      选项里选了"从外面覆盖",但不挂构建哈希:`[class*="_scrollBody"] table` 改成
+      `display:block;overflow-x:auto`,宽表自己横滚而不是被容器切掉。实测注入一张
+      983px 宽的表:容器 404px,`scrollWidth` 983,**能滚到**。代码块同理。
+      **剩下的**:非 `table`/`pre` 的宽内容(比如宽图、长 URL)仍然只能靠容器,
+      要不要让 `_scrollBody` 整体可横滚,没定——那会让整段对话都能左右晃,不一定更好。
 - [ ] **`ui-trajectory` 自带桌面双栏**:表格 + 一个 `<aside>` 事件详情,390px 下互相
       遮挡,连点都点不动(Playwright 报 pointer events 被 aside 拦截)。
       **名册层的头号候选:手机上直接不出现。**
@@ -127,6 +129,12 @@ HTTP 200  11948 bytes  0.013751s
 - [ ] **名册层(最便宜)**:哪些 `ui-*` 压根不进名册——`ui-directory-picker-native`
       仍是候选。~~`ui-settings-plugin-inventory`、settings 的桌面部分~~ 已不必砍:
       覆盖之后它们在手机上是能用的。不适配,是不出现——但能适配就不用砍。
+- [x] **抽屉手势(2026-08-21)**:左边缘右划开、抽屉上左划关,竖向意图优先所以不会
+      抢滚动。**是阈值不是橡皮筋**——跟手要用 `transform`,而带 transform 的祖先会俘获
+      `position:fixed` 后代(就是把 Settings 压进抽屉那个 bug),离散开合才保得住那个修复。
+      配套要在 Android 侧认领左边缘,否则手势导航先把它当返回吃掉,见
+      [feasibility 四点二](docs/feasibility.md)。
+- [x] **点击目标 ≥44px(2026-08-21)**:量出 13 个小于 44 的控件(最小 28),覆盖后 0 个。
 - [ ] **布局层剩下的**:会话列表、详情单的手势(下拉关闭)、输入区的键盘让位。
 - [ ] **主题层**:移动端尺度落到 `ui-theme` 的 `--dsw-*` token 上。上游
       [`docs/web-styling.zh.md`](https://github.com/deepseek-ai/deepseek-harness)

@@ -49,6 +49,12 @@ window.__ModuleLoader__.load({
     const SHEET_HEIGHT = 0.86
     /** Above this width a desktop dialog has room to be itself; below it, it does not. */
     const HANDHELD_MAX_WIDTH = 640
+    /** How far in from the left edge a swipe may start and still mean "open the drawer". */
+    const EDGE_ZONE = 24
+    /** Horizontal travel that commits a swipe, in px. */
+    const SWIPE_THRESHOLD = 48
+    /** The smallest thing worth aiming a thumb at. */
+    const TOUCH_TARGET = 44
 
     /**
      * Derive what the handheld frame shows from the panel store.
@@ -195,7 +201,7 @@ window.__ModuleLoader__.load({
 .dshm-topbar{flex:none;display:flex;align-items:center;gap:4px;height:48px;padding:0 6px;
   padding-top:env(safe-area-inset-top);box-sizing:content-box;
   border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-base)}
-.dshm-menu{display:flex;align-items:center;justify-content:center;width:40px;height:40px;padding:0;
+.dshm-menu{display:flex;align-items:center;justify-content:center;width:${TOUCH_TARGET}px;height:${TOUCH_TARGET}px;padding:0;
   border:none;border-radius:10px;background:none;color:var(--dsw-alias-label-primary);cursor:pointer}
 .dshm-menu:hover,.dshm-menu:focus-visible{background:var(--dsw-alias-interactive-bg-hover)}
 .dshm-main{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
@@ -273,6 +279,25 @@ window.__ModuleLoader__.load({
 [class*="_overlay"]>[class*="_panel"]>nav>[class*="_navTitle"]{display:none}
 [class*="_overlay"]>[class*="_panel"]>nav>[class*="_navList"]{flex-direction:row;gap:4px}
 [class*="_overlay"]>[class*="_panel"]>nav [class*="_navCell"]{white-space:nowrap}
+
+/* Thumbs, not cursors. Upstream sizes its controls for a mouse — measured on
+   this frame, 13 of them came in under 44px, several at 28. The visual weight
+   is upstream's business; the hit area is not, and on a phone 44px is the
+   floor. min-height rather than a padded overlay: an overlay needs
+   position:relative on every button, and that would re-anchor any dropdown
+   that positions itself against an ancestor. */
+/* The [class] is not decoration: upstream's own rules are class selectors, so
+   a bare "button" selector loses to them. Matching "a button that carries a
+   CSS-module class" outranks them without naming one of those classes. */
+button[class],[role="button"][class],input[class],select[class],textarea[class]{
+  min-height:${TOUCH_TARGET}px;min-width:${TOUCH_TARGET}px}
+
+/* Wide content must be reachable, not clipped. The conversation body is
+   "overflow: hidden auto" — fine on a desktop column, but a 610px markdown
+   table at 390px silently loses its right half. Let the wide things scroll
+   themselves instead of widening the page. */
+[class*="_scrollBody"] table{display:block;max-width:100%;overflow-x:auto}
+[class*="_scrollBody"] pre{max-width:100%;overflow-x:auto}
 }
 `
 
@@ -297,6 +322,7 @@ window.__ModuleLoader__.load({
       const { drawerOpen, sheetOpen } = frameState(panels)
       const currentSession = useSessions((s) => s.current)
       const lastSession = react.useRef(currentSession)
+      const frameRef = react.useRef(null)
 
       // Picking a session in the drawer must also LEAVE the drawer: a phone
       // shows one thing at a time, so the navigation and the destination
@@ -315,6 +341,59 @@ window.__ModuleLoader__.load({
         if (sheetOpen) actions.closeDetails()
         else actions.setSidebar(0)
       }, [actions, sheetOpen])
+
+      // Edge swipe opens the drawer, a swipe back over it closes it. On a
+      // phone the hamburger is a 44px target in one corner, and reaching it
+      // one-handed is the whole reason drawers grew gestures.
+      //
+      // A THRESHOLD, NOT A RUBBER BAND: following the finger would mean moving
+      // the panel with `transform`, and a transformed ancestor captures every
+      // `position: fixed` descendant — the bug that trapped the Settings dialog
+      // inside this drawer. Discrete open/close keeps that fix intact.
+      react.useEffect(() => {
+        const frame = frameRef.current
+        if (!frame) return undefined
+        let startX = 0
+        let startY = 0
+        let tracking = false
+
+        const onStart = (event) => {
+          if (event.touches.length !== 1) return
+          const touch = event.touches[0]
+          startX = touch.clientX
+          startY = touch.clientY
+          // Opening is an edge gesture so it cannot fight the content's own
+          // horizontal scrolling; closing may start anywhere over the drawer.
+          tracking = drawerOpen ? startX <= DRAWER_WIDTH : startX <= EDGE_ZONE
+        }
+        const onMove = (event) => {
+          if (!tracking || event.touches.length !== 1) return
+          const touch = event.touches[0]
+          const dx = touch.clientX - startX
+          const dy = touch.clientY - startY
+          // Vertical intent wins: this must never steal a scroll.
+          if (Math.abs(dy) > Math.abs(dx)) {
+            tracking = false
+            return
+          }
+          if (Math.abs(dx) < SWIPE_THRESHOLD) return
+          tracking = false
+          if (dx > 0 && !drawerOpen) actions.setSidebar(DRAWER_WIDTH)
+          else if (dx < 0 && drawerOpen) actions.setSidebar(0)
+        }
+        const onEnd = () => { tracking = false }
+
+        frame.addEventListener('touchstart', onStart, { passive: true })
+        frame.addEventListener('touchmove', onMove, { passive: true })
+        frame.addEventListener('touchend', onEnd, { passive: true })
+        frame.addEventListener('touchcancel', onEnd, { passive: true })
+        return () => {
+          frame.removeEventListener('touchstart', onStart)
+          frame.removeEventListener('touchmove', onMove)
+          frame.removeEventListener('touchend', onEnd)
+          frame.removeEventListener('touchcancel', onEnd)
+        }
+      }, [actions, drawerOpen])
 
       // The Android shell asks this before it lets a back press leave the app.
       // Without it, back skips straight past an open drawer or sheet and the
@@ -339,6 +418,7 @@ window.__ModuleLoader__.load({
       const toggleDrawer = react.useCallback(() => { actions.toggleSidebar() }, [actions])
 
       return h('div', {
+        ref: frameRef,
         className: 'dshm-frame',
         'data-drawer-open': drawerOpen || undefined,
         'data-sheet-open': sheetOpen || undefined,

@@ -215,6 +215,21 @@ Error: dsh: 1 entry did not activate
 `@media (max-width:640px)` 里——同一个插件在笔记本上打开 handheld profile 时不能改样子。
 这两条都有单测。
 
+**三、左边缘不是你的。** 抽屉的标准手势是从左边缘右划,但在手势导航下**那正是系统的
+返回手势**——实测 `input swipe` 从 x=8 划进来,应用被退到桌面,而 frame 连一个
+`touchstart` 都没收到。解法是 `setSystemGestureExclusionRects`(API 29+),这也正是
+Material 的 DrawerLayout 在做的事。平台每条边最多让出 200dp,所以只认领屏幕中段的一
+条带:拇指够得着,四个角还留给系统,返回手势不会被整条吃掉。
+
+**四、覆盖上游控件要用 `[class]` 提权。** 上游自己的规则是类选择器,`button{...}` 这样
+的类型选择器永远比不过它——实测把 `min-height:44px` 写成 `button{}`,那个
+`min-height:28px` 的工作区按钮纹丝不动。写成 `button[class]{}`(0,1,1)就压得住,而且
+**一个上游类名都不用写死**:它说的是"带 CSS Modules 类名的按钮",不是某个具体的类。
+
+**五、点击目标要量,不要凭感觉。** 这个 frame 上一共 13 个可交互元素小于 44px,最小的
+28px——上游是按鼠标做的,那是它的合理选择,但手机上 44px 是地板。量完再改,改完再量:
+现在是 0 个。
+
 ## 四点五、真正的约束是文件系统,不是 shell
 
 砍掉 shell 之后剩下的是"文件系统 + LLM + 会话 + 附件"。但在 Android 上,

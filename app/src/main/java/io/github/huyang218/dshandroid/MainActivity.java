@@ -2,6 +2,8 @@ package io.github.huyang218.dshandroid;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Rect;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -235,6 +237,32 @@ public class MainActivity extends Activity {
 
         setContentView(web);
         web.loadUrl(HOST_URL);
+        claimLeftEdgeGesture();
+    }
+
+    /**
+     * Take the left edge back from the system's back gesture.
+     *
+     * <p>Swiping in from the left edge is how a drawer is opened on a phone —
+     * and on gesture navigation it is ALSO how the system goes back, so the
+     * client's own handler never sees the touch at all. Measured: an
+     * {@code input swipe} from x=8 backed the app out to the launcher without
+     * the frame receiving a single touchstart.
+     *
+     * <p>{@code setSystemGestureExclusionRects} is what a drawer is supposed to
+     * use here. The platform caps each edge at 200dp of exclusion, so this
+     * claims a band in the middle of the screen — reachable with a thumb, and
+     * leaving the corners to the system so back is never fully taken away.
+     */
+    private void claimLeftEdgeGesture() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return;
+        web.post(() -> {
+            int height = web.getHeight();
+            int band = Math.min(dp(200), height);
+            int top = Math.max(0, (height - band) / 2);
+            web.setSystemGestureExclusionRects(
+                    java.util.Collections.singletonList(new Rect(0, top, dp(24), top + band)));
+        });
     }
 
     /**
