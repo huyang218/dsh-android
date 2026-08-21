@@ -1,0 +1,40 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'io.github.huyang218.dshandroid'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'io.github.huyang218.dshandroid'
+        minSdk 21
+        // Deliberately 28, not "out of date". Stopping here is what keeps real
+        // POSIX paths (the agent's workspace) and the ability to exec a binary
+        // from the data directory (Node as an ordinary process). Termux has
+        // held this posture for years. See docs/packaging.md.
+        targetSdk 28
+        versionCode 1
+        versionName '0.1.0-dev'
+
+        buildConfigField 'String', 'DEV_URL', "\"${project.findProperty('dsh.devUrl') ?: 'http://10.0.2.2:3099'}\""
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+        }
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

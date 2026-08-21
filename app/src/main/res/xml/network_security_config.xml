@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext HTTP is off by default from API 28, and this app needs it for
+  loopback: the shipped shape serves dsh from 127.0.0.1 on the device itself,
+  where TLS would be ceremony around a socket that never leaves the phone.
+
+  10.0.2.2 is the emulator's alias for the development machine's loopback and
+  is here only for the pre-Node development harness; it should be removed once
+  the host runs on-device.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+</network-security-config>
