@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The icon's ground. Dark on purpose: this app is a host, not a toy. -->
+    <color name="ic_launcher_background">#12161C</color>
+</resources>

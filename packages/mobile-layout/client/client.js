@@ -315,6 +315,27 @@ window.__ModuleLoader__.load({
         if (sheetOpen) actions.closeDetails()
         else actions.setSidebar(0)
       }, [actions, sheetOpen])
+
+      // The Android shell asks this before it lets a back press leave the app.
+      // Without it, back skips straight past an open drawer or sheet and the
+      // app appears to quit at random — the shell cannot see what the client
+      // has open, and only the client can close it. Returning false means "not
+      // mine", which is how the shell knows to fall back to history.
+      react.useEffect(() => {
+        const previous = window.__dshmBack
+        window.__dshmBack = () => {
+          if (sheetOpen) {
+            actions.closeDetails()
+            return true
+          }
+          if (drawerOpen) {
+            actions.setSidebar(0)
+            return true
+          }
+          return false
+        }
+        return () => { window.__dshmBack = previous }
+      }, [actions, drawerOpen, sheetOpen])
       const toggleDrawer = react.useCallback(() => { actions.toggleSidebar() }, [actions])
 
       return h('div', {

@@ -1,4 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">dsh</string>
+
+    <!-- The shell's own screens. Everything past them is the dsh client's copy. -->
+    <string name="state_starting">Starting the dsh host on this device…</string>
+    <string name="state_first_run">Unpacking the runtime this app carries</string>
+    <string name="state_first_run_detail">Only after an install or an update. Nothing leaves the device.</string>
+    <string name="state_unpacking">%1$s · %2$d%%</string>
+    <string name="state_launching">Starting the host…</string>
+    <string name="state_failed">The dsh host did not come up.</string>
+    <string name="state_no_runtime">This build carries no runtime, and none has been provisioned into its data directory.\n\nSee PLAN.md 线 A.</string>
+    <string name="state_webview_old">This device\'s Android System WebView is too old to run the dsh client.\n\nFound Chromium %1$d, need %2$d or newer.\n\nUpdating \"Android System WebView\" (or Chrome, when it provides the WebView) should fix it.</string>
+    <string name="action_retry">Retry</string>
+    <string name="label_log">Last lines of the host log:</string>
+    <string name="state_failed_timeout">The dsh host did not come up within %1$ds.</string>
+    <string name="state_elapsed">%1$ds</string>
 </resources>

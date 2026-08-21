@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark counterpart; the qualifier is honoured from API 29 on. -->
+    <style name="Theme.DshAndroid" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/shell_bg</item>
+    </style>
+</resources>

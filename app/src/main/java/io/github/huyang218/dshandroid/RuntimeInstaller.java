@@ -66,9 +66,17 @@ final class RuntimeInstaller {
 
     private RuntimeInstaller() {}
 
-    /** Progress sink; the service turns these into notification text. */
+    /** Bytes handed to tar so far, within one payload. */
+    private interface Fed {
+        void onBytes(long bytes);
+    }
+
+    /**
+     * Progress sink. `percent` is 0..100 across ALL payloads, or -1 for a step
+     * with nothing to measure.
+     */
     interface Progress {
-        void onStep(String message);
+        void onStep(String what, int percent);
     }
 
     /**
@@ -97,6 +105,33 @@ final class RuntimeInstaller {
         String packaged = packagedStamp(c);
         if (packaged == null) return Runtime.isProvisioned(c);
         return packaged.equals(readStamp(c)) && Runtime.isProvisioned(c);
+    }
+
+    /**
+     * `<name> <bytes>` for every payload, from the stamp asset's tail. Empty
+     * when the apk predates the sizes — progress then falls back to
+     * indeterminate rather than lying.
+     * @param c - any context.
+     * @return payload name to byte count.
+     */
+    private static java.util.Map<String, Long> payloadSizes(Context c) {
+        java.util.Map<String, Long> sizes = new java.util.LinkedHashMap<>();
+        try (InputStream in = c.getAssets().open(STAMP_ASSET);
+             Scanner scanner = new Scanner(in, StandardCharsets.UTF_8.name())) {
+            if (scanner.hasNextLine()) scanner.nextLine();
+            while (scanner.hasNextLine()) {
+                String[] parts = scanner.nextLine().trim().split("\\s+");
+                if (parts.length != 2) continue;
+                try {
+                    sizes.put("runtime/" + parts[0], Long.parseLong(parts[1]));
+                } catch (NumberFormatException ignored) {
+                    // A malformed line costs a progress bar, not an install.
+                }
+            }
+        } catch (IOException e) {
+            return sizes;
+        }
+        return sizes;
     }
 
     private static String readStamp(Context c) {
@@ -131,17 +166,28 @@ final class RuntimeInstaller {
             throw new IOException("cannot clear " + stampFile(c));
         }
 
-        progress.onStep("Clearing the previous runtime…");
+        progress.onStep("", 0);
         deleteTree(Runtime.nodeDir(c));
         deleteTree(Runtime.runtimeDir(c));
         deleteTree(new File(Runtime.dshHome(c), "profiles/handheld"));
         deleteTree(new File(Runtime.dshHome(c), ".agent-presets/handheld"));
 
+        java.util.Map<String, Long> sizes = payloadSizes(c);
+        long total = 0;
+        for (Long size : sizes.values()) total += size;
+        long doneBefore = 0;
+
         for (String payload : PAYLOADS) {
-            progress.onStep("Unpacking " + payload.substring(payload.indexOf('/') + 1) + "…");
+            String name = payload.substring(payload.indexOf('/') + 1);
             long started = System.currentTimeMillis();
-            extract(c, payload, files);
+            final long base = doneBefore;
+            final long grandTotal = total;
+            extract(c, payload, files, fed ->
+                progress.onStep(name, grandTotal <= 0 ? -1
+                        : (int) Math.min(99, (base + fed) * 100 / grandTotal)));
             Log.i(TAG, payload + " unpacked in " + (System.currentTimeMillis() - started) + "ms");
+            Long size = sizes.get(payload);
+            doneBefore += size == null ? 0 : size;
         }
 
         File node = Runtime.nodeBinary(c);
@@ -153,7 +199,7 @@ final class RuntimeInstaller {
         }
 
         writeStamp(c, packaged);
-        progress.onStep("Runtime ready");
+        progress.onStep("", 100);
     }
 
     /**
@@ -162,7 +208,7 @@ final class RuntimeInstaller {
      * <p>tar's stdin is fed from this thread while its output goes to the host
      * log, so a chatty extraction cannot fill a pipe nobody is draining.
      */
-    private static void extract(Context c, String asset, File into) throws IOException {
+    private static void extract(Context c, String asset, File into, Fed fed) throws IOException {
         ProcessBuilder pb = new ProcessBuilder(
             "/system/bin/tar",
             "-x",
@@ -178,14 +224,25 @@ final class RuntimeInstaller {
         try (InputStream in = c.getAssets().open(asset, AssetManager.ACCESS_STREAMING);
              OutputStream out = tar.getOutputStream()) {
             byte[] buffer = new byte[1 << 16];
+            long written = 0;
+            long lastReport = 0;
             // `!= -1`, not `> 0`: a legal read() may return 0 without being at
             // the end, and treating that as EOF stops feeding tar mid-archive
             // — which looks like a hang, not like a failure, because tar goes
             // on waiting for the rest of a stream nobody is still writing.
             for (int read; (read = in.read(buffer)) != -1; ) {
-                if (read > 0) out.write(buffer, 0, read);
+                if (read <= 0) continue;
+                out.write(buffer, 0, read);
+                written += read;
+                // Every 4 MB: often enough that the bar moves, rarely enough
+                // that reporting is not the work.
+                if (written - lastReport >= (4 << 20)) {
+                    lastReport = written;
+                    fed.onBytes(written);
+                }
             }
             out.flush();
+            fed.onBytes(written);
         } catch (IOException e) {
             failure = e;
         }

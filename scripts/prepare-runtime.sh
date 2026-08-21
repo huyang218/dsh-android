@@ -149,11 +149,22 @@ done
 tar -C "$STAGE" -cf "$ASSETS/composition.tar" dsh-home
 
 # --------------------------------------------------------------- stamp ------
-# Identity of the payloads, not of the repo: the installer must re-unpack when
-# any of the three changes, and must NOT when only unrelated app code did.
+# Line 1 is the identity of the payloads — not of the repo: the installer must
+# re-unpack when any of the three changes, and must NOT when only unrelated app
+# code did.
+#
+# The lines after it are `<name> <bytes>`, which is how the first-run screen can
+# show a real percentage. The app cannot measure this itself: the payloads are
+# deflated inside the apk, so `openFd` refuses them and the only length an
+# AssetManager stream reports is the compressed one.
 STAMP=$(cat "$ASSETS/node.tar" "$ASSETS/seed.tar" "$ASSETS/composition.tar" \
   | shasum -a 256 | cut -c1-16)
-echo "$STAMP" > "$ASSETS/stamp"
+{
+  echo "$STAMP"
+  for payload in node.tar seed.tar composition.tar; do
+    echo "$payload $(wc -c < "$ASSETS/$payload" | tr -d ' ')"
+  done
+} > "$ASSETS/stamp"
 
 echo
 echo "载荷:"

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive-icon foreground. The 108dp canvas is masked down to a ~72dp circle
+  by the launcher, so everything meaningful stays inside the middle 66%.
+
+  The mark is the project in one picture: a device with something running
+  inside it. Deliberately NOT the DeepSeek whale — this is an unofficial
+  project and borrowing upstream's mark would claim an endorsement it does
+  not have.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:pathData="M43.5,28 h21 a6.5,6.5 0 0 1 6.5,6.5 v39 a6.5,6.5 0 0 1 -6.5,6.5 h-21 a6.5,6.5 0 0 1 -6.5,-6.5 v-39 a6.5,6.5 0 0 1 6.5,-6.5 z"
+        android:strokeWidth="4.5"
+        android:strokeColor="#F5F7FA" />
+    <path
+        android:pathData="M54,45.5 m-8.5,0 a8.5,8.5 0 1,0 17,0 a8.5,8.5 0 1,0 -17,0"
+        android:fillColor="#4C8DF6" />
+    <path
+        android:pathData="M44,67 h20 a3,3 0 0 1 0,6 h-20 a3,3 0 0 1 0,-6 z"
+        android:fillColor="#F5F7FA"
+        android:fillAlpha="0.55" />
+</vector>

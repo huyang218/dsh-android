@@ -2,19 +2,29 @@ package io.github.huyang218.dshandroid;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
+import android.view.View;
+import android.view.ViewGroup;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.Button;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.Socket;
@@ -62,20 +72,38 @@ public class MainActivity extends Activity {
     /** `Chrome/<major>.<...>` inside the WebView user-agent string. */
     private static final Pattern CHROME_VERSION = Pattern.compile("Chrome/(\\d+)\\.");
 
-    /** How long to wait for the host to bind before saying so. */
-    private static final long STARTUP_TIMEOUT_MS = 90_000L;
+    /**
+     * How long to wait for the host to bind before calling it dead.
+     *
+     * <p>Deliberately generous, and it is a BACKSTOP rather than a diagnosis: a
+     * host that actually died is reported by the service the moment its process
+     * exits ({@link HostStatus.Phase#FAILED}), so this timer only covers the
+     * case where nothing reports anything at all.
+     *
+     * <p>90 seconds was the first guess and it was wrong — measured on an
+     * emulator under load, composing the plugin tree took 104 seconds, so the
+     * screen declared failure while the host was still coming up. Anything
+     * derived from "it feels slow" belongs on the safe side of the slowest
+     * device we have actually watched.
+     */
+    private static final long STARTUP_TIMEOUT_MS = 5 * 60_000L;
 
     /**
      * The same, for a launch that has to unpack first. Writing ~250 MB of small
-     * files takes minutes on a slow device, and timing out on a working install
-     * would be the most confusing failure this screen could produce.
+     * files took 105 seconds on that same loaded emulator, and it happens
+     * before the host even starts; timing out on a working install would be the
+     * most confusing failure this screen could produce.
      */
-    private static final long FIRST_RUN_TIMEOUT_MS = 15 * 60_000L;
+    private static final long FIRST_RUN_TIMEOUT_MS = 20 * 60_000L;
 
     private final Handler ui = new Handler(Looper.getMainLooper());
     private WebView web;
-    private TextView status;
+    private TextView statusTitle;
+    private TextView statusDetail;
+    private ProgressBar statusBar;
     private volatile boolean stopped;
+    /** When this launch attempt began, for the elapsed counter. */
+    private long launchedAt;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -85,10 +113,7 @@ public class MainActivity extends Activity {
         if (chromium > 0 && chromium < MIN_CHROMIUM_MAJOR) {
             // A blank screen is the worst possible failure here: nothing on it
             // says the fault is a stale system component the user can update.
-            setContentView(notice("This device's Android System WebView is too old to run the"
-                    + " dsh client.\n\nFound Chromium " + chromium + ", need "
-                    + MIN_CHROMIUM_MAJOR + " or newer.\n\nUpdating \"Android System WebView\""
-                    + " (or Chrome, when it provides the WebView) should fix it."));
+            setContentView(notice(getString(R.string.state_webview_old, chromium, MIN_CHROMIUM_MAJOR)));
             return;
         }
 
@@ -96,18 +121,13 @@ public class MainActivity extends Activity {
         if (firstRun && RuntimeInstaller.packagedStamp(this) == null && !Runtime.isProvisioned(this)) {
             // A build without payloads is a development shape, not a user one:
             // say which, rather than sitting on a port that will never open.
-            setContentView(notice("No runtime installed.\n\nThis build carries no Node and dsh"
-                    + " trees, and none have been provisioned into its data directory."
-                    + "\n\nSee PLAN.md 线 A."));
+            setContentView(notice(getString(R.string.state_no_runtime)));
             return;
         }
 
-        status = notice(firstRun
-                ? "First run: unpacking the runtime this app carries.\n\nThis takes a minute or"
-                        + " two, and only happens after an install or an update."
-                : "Starting the dsh host on this device…");
-        setContentView(status);
-
+        HostStatus.reset();
+        launchedAt = System.currentTimeMillis();
+        setContentView(statusScreen(firstRun));
         startService(new Intent(this, NodeService.class));
         awaitHost(firstRun ? FIRST_RUN_TIMEOUT_MS : STARTUP_TIMEOUT_MS);
     }
@@ -125,9 +145,19 @@ public class MainActivity extends Activity {
             long deadline = System.currentTimeMillis() + budget;
             while (!stopped && System.currentTimeMillis() < deadline) {
                 if (portIsOpen()) {
+                    HostStatus.running();
                     ui.post(this::showClient);
                     return;
                 }
+                // A host that already died must not be waited out: the service
+                // knows, and the screen should say so now rather than in ten
+                // more minutes.
+                if (HostStatus.phase() == HostStatus.Phase.FAILED) {
+                    final String why = HostStatus.detail();
+                    ui.post(() -> setContentView(failureScreen(why)));
+                    return;
+                }
+                ui.post(this::renderStatus);
                 try {
                     Thread.sleep(250L);
                 } catch (InterruptedException e) {
@@ -136,11 +166,34 @@ public class MainActivity extends Activity {
                 }
             }
             if (!stopped) {
-                ui.post(() -> status.setText("The dsh host did not come up within "
-                        + (budget / 1000) + "s.\n\nIts output is in "
-                        + Runtime.logFile(this).getAbsolutePath()));
+                ui.post(() -> setContentView(failureScreen(
+                        getString(R.string.state_failed_timeout, budget / 1000))));
             }
         }, "dsh-host-wait").start();
+    }
+
+    /** Push the service's published state onto the waiting screen. */
+    private void renderStatus() {
+        if (statusTitle == null) return;
+        int percent = HostStatus.percent();
+        String what = HostStatus.detail();
+        if (HostStatus.phase() == HostStatus.Phase.UNPACKING) {
+            statusTitle.setText(getString(R.string.state_first_run));
+            statusDetail.setText(what.isEmpty()
+                    ? getString(R.string.state_first_run_detail)
+                    : getString(R.string.state_unpacking, what, Math.max(percent, 0)));
+            if (percent >= 0) {
+                statusBar.setIndeterminate(false);
+                statusBar.setProgress(percent);
+            }
+        } else if (HostStatus.phase() == HostStatus.Phase.LAUNCHING) {
+            statusTitle.setText(getString(R.string.state_launching));
+            // Elapsed seconds, because composing the plugin tree can take a
+            // minute or more and a still screen is how a wait looks like a hang.
+            long seconds = (System.currentTimeMillis() - launchedAt) / 1000;
+            statusDetail.setText(seconds < 5 ? "" : getString(R.string.state_elapsed, seconds));
+            statusBar.setIndeterminate(true);
+        }
     }
 
     private boolean portIsOpen() {
@@ -206,28 +259,191 @@ public class MainActivity extends Activity {
         }
     }
 
+    /**
+     * The waiting screen: mark, one line of what is happening, and a bar that
+     * actually moves.
+     *
+     * <p>Built in code rather than XML because it is the only layout this app
+     * owns — everything past it is the client's — and because the first launch
+     * after an install spends a minute here. A minute of a motionless screen
+     * reads as a hang.
+     */
+    private View statusScreen(boolean firstRun) {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setGravity(Gravity.CENTER);
+        root.setBackgroundColor(color(R.color.shell_bg));
+        int pad = dp(28);
+        root.setPadding(pad, pad, pad, pad);
+
+        ImageView mark = new ImageView(this);
+        mark.setImageResource(R.mipmap.ic_launcher);
+        LinearLayout.LayoutParams markParams =
+                new LinearLayout.LayoutParams(dp(64), dp(64));
+        markParams.bottomMargin = dp(24);
+        root.addView(mark, markParams);
+
+        statusTitle = new TextView(this);
+        statusTitle.setText(firstRun
+                ? getString(R.string.state_first_run)
+                : getString(R.string.state_starting));
+        statusTitle.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        statusTitle.setTextColor(color(R.color.shell_text));
+        statusTitle.setGravity(Gravity.CENTER);
+        root.addView(statusTitle);
+
+        statusBar = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        statusBar.setMax(100);
+        statusBar.setIndeterminate(true);
+        // The platform accent is whatever the device vendor chose; this screen
+        // should look like this app in both themes.
+        statusBar.setProgressTintList(android.content.res.ColorStateList.valueOf(color(R.color.shell_accent)));
+        statusBar.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(color(R.color.shell_accent)));
+        LinearLayout.LayoutParams barParams =
+                new LinearLayout.LayoutParams(dp(220), ViewGroup.LayoutParams.WRAP_CONTENT);
+        barParams.topMargin = dp(20);
+        barParams.bottomMargin = dp(12);
+        root.addView(statusBar, barParams);
+
+        statusDetail = new TextView(this);
+        statusDetail.setText(firstRun ? getString(R.string.state_first_run_detail) : "");
+        statusDetail.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        statusDetail.setTextColor(color(R.color.shell_text_dim));
+        statusDetail.setGravity(Gravity.CENTER);
+        root.addView(statusDetail);
+
+        return root;
+    }
+
+    /**
+     * What went wrong, with the evidence attached.
+     *
+     * <p>The old screen printed the log's PATH — a path inside private app
+     * storage, which the person reading it cannot open. The last lines of that
+     * log are the only thing that makes the failure actionable, so they belong
+     * on the screen.
+     */
+    private View failureScreen(String why) {
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(color(R.color.shell_bg));
+        int pad = dp(24);
+        root.setPadding(pad, pad, pad, pad);
+
+        TextView title = new TextView(this);
+        title.setText(why.isEmpty() ? getString(R.string.state_failed) : why);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        title.setTextColor(color(R.color.shell_text));
+        root.addView(title);
+
+        Button retry = new Button(this);
+        retry.setText(getString(R.string.action_retry));
+        retry.setOnClickListener(v -> {
+            HostStatus.reset();
+            launchedAt = System.currentTimeMillis();
+            setContentView(statusScreen(false));
+            startService(new Intent(this, NodeService.class));
+            awaitHost(STARTUP_TIMEOUT_MS);
+        });
+        LinearLayout.LayoutParams retryParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        retryParams.topMargin = dp(16);
+        retryParams.bottomMargin = dp(16);
+        root.addView(retry, retryParams);
+
+        TextView label = new TextView(this);
+        label.setText(getString(R.string.label_log));
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        label.setTextColor(color(R.color.shell_text_dim));
+        root.addView(label);
+
+        TextView log = new TextView(this);
+        log.setText(logTail(20));
+        log.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        log.setTextColor(color(R.color.shell_text_dim));
+        log.setTypeface(android.graphics.Typeface.MONOSPACE);
+        log.setHorizontallyScrolling(true);
+
+        ScrollView scroller = new ScrollView(this);
+        scroller.addView(log);
+        root.addView(scroller);
+        return root;
+    }
+
+    /** The tail of the host log, or a note that there is none yet. */
+    private String logTail(int lines) {
+        Deque<String> tail = new ArrayDeque<>();
+        try (BufferedReader reader = new BufferedReader(new FileReader(Runtime.logFile(this)))) {
+            for (String line; (line = reader.readLine()) != null; ) {
+                tail.addLast(line);
+                if (tail.size() > lines) tail.removeFirst();
+            }
+        } catch (IOException e) {
+            return "(" + Runtime.logFile(this).getName() + ": " + e.getMessage() + ")";
+        }
+        return tail.isEmpty() ? "(empty)" : String.join("\n", tail);
+    }
+
+    private int dp(int value) {
+        return (int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
+    }
+
+    @SuppressWarnings("deprecation")
+    private int color(int id) {
+        // getColor(int) is API 23; this app still starts at 21.
+        return getResources().getColor(id);
+    }
+
     /** A plain-text screen, for the states a web page cannot describe. */
     private TextView notice(String text) {
         TextView view = new TextView(this);
         view.setText(text);
         view.setGravity(Gravity.CENTER);
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        view.setTextColor(Color.BLACK);
-        view.setBackgroundColor(Color.WHITE);
+        view.setTextColor(color(R.color.shell_text));
+        view.setBackgroundColor(color(R.color.shell_bg));
         int pad = (int) TypedValue.applyDimension(
                 TypedValue.COMPLEX_UNIT_DIP, 24, getResources().getDisplayMetrics());
         view.setPadding(pad, pad, pad, pad);
         return view;
     }
 
-    /** Hardware/gesture back walks the client's own history before leaving. */
+    /**
+     * Back closes what is open before it leaves.
+     *
+     * <p>On a handheld the drawer and the details sheet ARE the navigation, and
+     * a back press that skips straight past them — as it did while this only
+     * consulted WebView history — feels like the app quitting at random. The
+     * client knows what is open, so ask it: `mobile-layout` publishes
+     * {@code window.__dshmBack()}, which closes the topmost layer and returns
+     * true when it consumed the press.
+     *
+     * <p>The answer arrives asynchronously, so the key is always consumed here
+     * and the decision made in the callback. The fallback order is the client's
+     * own history, and only then leaving.
+     */
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK && web != null && web.canGoBack()) {
-            web.goBack();
-            return true;
+        if (keyCode != KeyEvent.KEYCODE_BACK || web == null) {
+            return super.onKeyDown(keyCode, event);
         }
-        return super.onKeyDown(keyCode, event);
+        web.evaluateJavascript(
+                "(function(){try{return !!(window.__dshmBack && window.__dshmBack())}"
+                        + "catch(e){return false}})()",
+                value -> {
+                    if ("true".equals(value)) return;
+                    if (web == null) return;
+                    if (web.canGoBack()) {
+                        web.goBack();
+                        return;
+                    }
+                    // Not finish(): the host is a foreground service that keeps
+                    // running, and the next launch should come back to a live
+                    // WebView rather than reloading the client from scratch.
+                    moveTaskToBack(true);
+                });
+        return true;
     }
 
     @Override

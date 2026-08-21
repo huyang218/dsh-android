@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The shell's theme. `windowBackground` matters more than it looks: it is
+      what the system paints between tapping the icon and the first frame, so
+      leaving it at the platform default is a white flash before a dark UI.
+    -->
+    <style name="Theme.DshAndroid" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/shell_bg</item>
+    </style>
+</resources>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="state_starting">正在启动本机上的 dsh host…</string>
+    <string name="state_first_run">正在展开应用自带的运行时</string>
+    <string name="state_first_run_detail">只在安装或更新后做一次。全程不联网,数据不出设备。</string>
+    <string name="state_unpacking">%1$s · %2$d%%</string>
+    <string name="state_launching">正在拉起 host…</string>
+    <string name="state_failed">dsh host 没能起来。</string>
+    <string name="state_no_runtime">这个构建没有带运行时,数据目录里也没有铺过。\n\n见 PLAN.md 线 A。</string>
+    <string name="state_webview_old">这台设备的 Android System WebView 太旧,跑不了 dsh 客户端。\n\n当前 Chromium %1$d,需要 %2$d 以上。\n\n更新「Android System WebView」(或提供 WebView 的 Chrome)应该就能解决。</string>
+    <string name="action_retry">重试</string>
+    <string name="label_log">host 日志的最后几行:</string>
+    <string name="state_failed_timeout">dsh host 在 %1$d 秒内没能起来。</string>
+    <string name="state_elapsed">已等待 %1$d 秒</string>
+</resources>

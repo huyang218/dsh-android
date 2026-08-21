@@ -82,13 +82,24 @@ public class NodeService extends Service {
         try {
             if (!RuntimeInstaller.isCurrent(this)) {
                 Log.i(TAG, "unpacking the runtime this apk carries");
-                RuntimeInstaller.install(this, this::notifyNow);
+                RuntimeInstaller.install(this, (what, percent) -> {
+                    HostStatus.unpacking(what, percent);
+                    // The notification is the disclosure that something is
+                    // running; the Activity is where the detail belongs, so
+                    // this stays one short line.
+                    notifyNow(percent < 0
+                            ? getString(R.string.state_first_run)
+                            : getString(R.string.state_first_run) + " · " + percent + "%");
+                });
             }
+            HostStatus.launching();
+            notifyNow(getString(R.string.state_launching));
             node = spawn();
             watch(node);
         } catch (IOException e) {
             Log.e(TAG, "failed to start the dsh host", e);
-            notifyNow("dsh host failed to start: " + e.getMessage());
+            HostStatus.failed(String.valueOf(e.getMessage()));
+            notifyNow(getString(R.string.state_failed));
             stopSelf();
         }
     }
@@ -149,6 +160,9 @@ public class NodeService extends Service {
             try {
                 int code = p.waitFor();
                 Log.w(TAG, "dsh host exited with " + code);
+                // An exit is a fact the waiting screen should see immediately,
+                // rather than after its own timeout runs out.
+                HostStatus.failed("exit " + code);
                 notifyNow("dsh host stopped (exit " + code + ")");
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
