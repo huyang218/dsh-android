@@ -47,7 +47,7 @@ apk
 ├── Node 二进制(aarch64,按 termux-packages 的配方用自己的前缀重编)
 ├── dsh 运行时快照(seed,思路同 dsh-desktop 的 seed.tar)
 ├── 手持 composition(不含 subprocess / sandbox / bash / pwsh / terminal 行)
-├── 前端 dist + 移动端 client 名册
+├── 前端 dist + 移动端 client 名册(布局插件源码在本仓库 packages/mobile-layout/)
 └── Android 应用本体(WebView + 前台服务持有 Node 进程)
 ```
 
@@ -56,10 +56,15 @@ Node 以**独立进程**运行,由前台服务持有;应用退出时整树收干
 
 ## 待验证
 
-这些都要在里程碑 1 里用真机回答,不要靠文档推断:
+这些都要在[线 A](../PLAN.md#线-anode-在手机上把-dsh-起起来证伪点)里用真机回答,不要靠文档推断:
 
 - [ ] targetSdk 28 + `WRITE_EXTERNAL_STORAGE` 在 Android 13/14/15 上是否确实还给真实路径
-- [ ] 从应用数据目录 exec 二进制,在 Android 13/14/15 上是否都还成立
+- [x] **从应用数据目录 exec 二进制:Android 15 上成立。** 这是这份文档最要紧的赌注,
+      现在有实测:`targetSdk 28` 的应用在 Android 15 (API 35, arm64) 上,由**应用进程
+      自己** `ProcessBuilder` 拉起 `files/node/bin/node`,进程树是
+      `io.github.huyang218.dshandroid(4465) → node(4533)`,同一个 uid `u0_a207`。
+      不是 `run-as` 代跑,是应用自己 fork 的。Android 9 上也先验过一次作为基线。
+      **W^X 那把锁,targetSdk 28 确实还开着。**
 - [ ] 当前 Android 版本拒绝安装的 targetSdk 下限到底是多少
 - [ ] `dsh-fs-local` 在拿到真实路径后能否原样工作(还是仍要一个 Android 后端)
 - [ ] 前台服务能不能在长会话里稳住 Node 进程
