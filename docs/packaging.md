@@ -121,10 +121,18 @@ scripts/prepare-runtime.sh --from-device   # 从一台已铺好运行时的设�
 scripts/prepare-runtime.sh                 # 之后用本地缓存的 node.tar 重打
 ```
 
-seed 默认取本机 dsh-desktop 的活跃 runtime(`DSH_SEED_SRC` 可覆盖),打包时剪掉
-android-arm64 上永远不会加载的东西:`node-pty`(手持形态本来就不挂它)、几个
-`*-darwin-arm64` 可选依赖、以及 17 MB 的 `sharp-libvips-darwin-arm64`(sharp 在这里
-走 wasm32)。**307 MB → 258 MB**,剪的都是"这台机器上不可能被 require 的文件"。
+seed 由 [`vendor/seed/`](../vendor/) 的 `package-lock.json` 决定:脚本 `npm ci` 出
+588 个包,**换台机器、换个时间装出来的是同一棵树**。原先是 rsync 维护者本机
+dsh-desktop 正在跑的那份——别人复现不了,同一台机器过些天也复现不了。
+`--seed-from <目录>` 保留了快照某个现成 runtime 的老路子。
+
+**光钉版本号不够**:`dsh@0.1.0-rc.7` 用 `^` 依赖兄弟包,今天新装会拿到 rc.8 的
+`dsh-web-app`,而 rc.8 的 `dsh-attachment-local` 不再导出 `detectImage`,
+`storage-no-hardlink` 一 import,整个 host 在启动时就死了(真机撞出来的,不是推测)。
+
+打包时剪掉 android-arm64 上永远不会加载的东西:`node-pty`(手持形态本来就不挂它)、
+几个 `*-darwin-arm64` 可选依赖、以及 17 MB 的 `sharp-libvips-darwin-arm64`(sharp 在
+这里走 wasm32)。**307 MB → 258 MB**,剪的都是"这台机器上不可能被 require 的文件"。
 
 Node 树是 [`vendor/node.tar`](../vendor/),**进仓库**——它是构建输入,没有它别人
 重打不出同一个 apk(90 MB 的 tar 在 git 包里约 33 MB,不碰 GitHub 的 100 MB 硬限制)。

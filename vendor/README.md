@@ -20,6 +20,21 @@ ICU 是 ICU 许可,SQLite 公有领域,zlib 是 zlib 许可,`libc++_shared` 属 
 **全部宽松,没有 GPL/LGPL**,可以随 apk 分发——但 Apache-2.0 和 ICU 要求随附许可
 文本,而 apk 现在一份都没带。公开发行前要补。
 
+## `seed/`
+
+`package.json` 钉死 `@deepseek-ai/dsh` 的版本,`package-lock.json` 钉死另外 587 个包。
+[`scripts/prepare-runtime.sh`](../scripts/prepare-runtime.sh) 默认用 `npm ci` 按这把锁
+装出 apk 里那份运行时——**任何人、任何时候装出来的都是同一棵树**。
+
+**光有版本号不够。** `dsh@0.1.0-rc.7` 用 `^` 依赖它的兄弟包,所以今天新装一次会把
+`dsh-web-app` 解析到 rc.8;而 rc.8 的 `dsh-attachment-local` 不再导出 `detectImage`,
+`packages/storage-no-hardlink` 一 import 就让整个 host 在启动时死掉。这不是推测,是
+真机上撞出来的。锁就是为这个存在的。
+
+锁是用 `npm install --package-lock-only --before=2026-08-18` 生成的(rc.7 发布于
+08-17,rc.8 发布于 08-19),之后就只认锁,不再需要 `--before`。**升级 dsh 是一件要
+专门做的事**:重新生成锁,然后在设备上重验一遍,不是改个版本号就完。
+
 ## 为什么不用 Git LFS
 
 一个 90 MB 的 tar 在 git 的包里约 33 MB,不触发 GitHub 的 100 MB 硬限制。LFS 的免费

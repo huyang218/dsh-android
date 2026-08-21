@@ -20,8 +20,22 @@
 # dereferences them — that is how the device tree ended up 744 MB instead of
 # 307 MB. tar carries links, modes and all, and Android's own tar restores them.
 #
-#   scripts/prepare-runtime.sh                 seed from the local dsh-desktop runtime
-#   scripts/prepare-runtime.sh --from-device   node tree from the attached device
+#   scripts/prepare-runtime.sh                    seed from vendor/seed's lockfile
+#   scripts/prepare-runtime.sh --from-device      also re-take the node tree from a device
+#   scripts/prepare-runtime.sh --seed-from <dir>  snapshot a runtime directory instead
+#
+# THE SEED COMES FROM A LOCKFILE, NOT FROM SOMEBODY'S MACHINE. `npm ci` against
+# vendor/seed/package-lock.json puts the same 588 packages on any machine; the
+# earlier shape — rsync whatever the maintainer's dsh-desktop happened to be
+# running — could not be reproduced by anyone else, and could not even be
+# reproduced later on the same machine.
+#
+# A version number alone is NOT enough: dsh@0.1.0-rc.7 depends on its siblings
+# with `^`, so a fresh install today resolves dsh-web-app to rc.8, whose
+# dsh-attachment-local no longer exports `detectImage` — the handheld host dies
+# at boot because packages/storage-no-hardlink imports it. That is what a lock
+# is for. Moving to a newer dsh is a deliberate step: regenerate the lock, then
+# re-verify on a device.
 #
 # The Node tree has no canonical source in this repo yet: today it is Termux's
 # aarch64 build, lifted off a device that was provisioned by hand. Rebuilding it
@@ -35,15 +49,21 @@ ROOT=$(pwd)
 ASSETS=$ROOT/app/src/main/assets/runtime
 PKG=io.github.huyang218.dshandroid
 
-# Where the dsh runtime snapshot comes from. dsh-desktop keeps two slots and
-# the active one is the tree it is actually running; overriding this is how you
-# build against a different dsh version.
-SEED_SRC=${DSH_SEED_SRC:-$HOME/Library/Application Support/dsh-desktop/runtime/slot-b}
-# A local copy of the Node tree, laid out as <dir>/node/{bin,lib}. Populated by
-# --from-device, and kept out of git.
+# The pinned dsh install: package.json + package-lock.json, both in git.
+SEED_LOCK=$ROOT/vendor/seed
+# The Node tree, in git as vendor/node.tar (see vendor/README.md).
 NODE_SRC=${DSH_NODE_SRC:-$ROOT/vendor}
 
-FROM_DEVICE=${1:-}
+FROM_DEVICE=
+SEED_DIR=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --from-device) FROM_DEVICE=1 ;;
+    --seed-from) SEED_DIR=${2:-}; shift ;;
+    *) echo "未知参数:$1" >&2; exit 2 ;;
+  esac
+  shift
+done
 
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
@@ -51,7 +71,7 @@ trap 'rm -rf "$STAGE"' EXIT
 mkdir -p "$ASSETS"
 
 # ---------------------------------------------------------------- node ------
-if [ "$FROM_DEVICE" = "--from-device" ]; then
+if [ -n "$FROM_DEVICE" ]; then
   echo "==> 从设备取 Node 树"
   mkdir -p "$NODE_SRC"
   # Tar it ON the device: the archive is what preserves the symlinks, so it has
@@ -71,10 +91,19 @@ echo "==> node.tar"
 cp "$NODE_SRC/node.tar" "$ASSETS/node.tar"
 
 # ---------------------------------------------------------------- seed ------
-echo "==> seed.tar(源:$SEED_SRC)"
-[ -d "$SEED_SRC/node_modules" ] || { echo "$SEED_SRC 里没有 node_modules" >&2; exit 1; }
 mkdir -p "$STAGE/runtime"
-rsync -a "$SEED_SRC/" "$STAGE/runtime/"
+if [ -n "$SEED_DIR" ]; then
+  echo "==> seed.tar(快照:$SEED_DIR)"
+  [ -d "$SEED_DIR/node_modules" ] || { echo "$SEED_DIR 里没有 node_modules" >&2; exit 1; }
+  rsync -a "$SEED_DIR/" "$STAGE/runtime/"
+else
+  echo "==> seed.tar(npm ci,锁在 vendor/seed/)"
+  cp "$SEED_LOCK/package.json" "$SEED_LOCK/package-lock.json" "$STAGE/runtime/"
+  # --omit=dev: the phone runs this tree, it never builds against it.
+  ( cd "$STAGE/runtime" && npm ci --omit=dev --no-audit --no-fund )
+fi
+# The lock is a build input, not something the phone needs.
+rm -f "$STAGE/runtime/package-lock.json"
 
 # Drop what can never load on android-arm64. Each of these is either a
 # platform-tagged optional dependency (the loader picks a different one here)

@@ -15,6 +15,11 @@
  * `detectImage` (the decoder and the pixel-limit policy) and the whole read
  * path stay upstream's.
  *
+ * <p>That drift is not hypothetical: rc.8 stopped exporting `detectImage`, and
+ * a seed built from it dies at boot with "does not provide an export named
+ * 'detectImage'" — the whole host, not just attachments. It is one reason the
+ * seed is pinned by lockfile (vendor/seed) rather than by version range.
+ *
  * Content addressing makes the exclusivity question easier than it looks: two
  * writers racing for one name are, by construction, writing identical bytes.
  * The claim + rename shim still reports EEXIST, and EEXIST is handled the way
