@@ -1,5 +1,7 @@
 # dsh Android
 
+[![apk](https://github.com/huyang218/dsh-android/actions/workflows/apk.yml/badge.svg)](https://github.com/huyang218/dsh-android/actions/workflows/apk.yml)
+
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`)的 Android 应用:把 dsh 的 host 和 client **一起装进手机**,不连任何服务器,也不依赖任何一台开着的电脑。
 
 > **非官方项目**,与 DeepSeek 无隶属关系,也未获其背书。与
