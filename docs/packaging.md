@@ -43,13 +43,20 @@ ndkVersion=29.0.14206865
 ## 由此确定的打包形态
 
 ```
-apk
-├── Node 二进制(aarch64,按 termux-packages 的配方用自己的前缀重编)
-├── dsh 运行时快照(seed,思路同 dsh-desktop 的 seed.tar)
-├── 手持 composition(不含 subprocess / sandbox / bash / pwsh / terminal 行)
-├── 前端 dist + 移动端 client 名册(布局插件源码在本仓库 packages/mobile-layout/)
-└── Android 应用本体(WebView + 前台服务持有 Node 进程)
+apk(84 MB,实测)
+├── assets/runtime/node.tar         90 MB  Node 二进制 + 它链接的 .so(aarch64)
+├── assets/runtime/seed.tar        265 MB  dsh 运行时快照(node_modules)
+├── assets/runtime/composition.tar 110 KB  手持 profile、agent 预设、本仓库两个插件
+├── assets/runtime/stamp                   上面三个的身份,装机时用来判断要不要重解
+└── Android 应用本体(WebView + 前台服务持有 Node 进程),零依赖,约 30 KB
 ```
+
+**载荷不压缩,由 apk 自己压**:372 MB 的 tar 打进 84 MB 的 apk。这一条踩过坑,
+见下面「两个只有真机才会告诉你的坑」。
+
+首次启动由 [`RuntimeInstaller`](../app/src/main/java/io/github/huyang218/dshandroid/RuntimeInstaller.java)
+把三个 tar 解到应用私有目录;之后每次启动比对 stamp,一致就直接起 host。实测
+(Android 15 / API 35 模拟器):node 0.9 秒、seed 4.0 秒、composition 0.03 秒。
 
 Node 以**独立进程**运行,由前台服务持有;应用退出时整树收干净——和 `dsh-desktop`
 里 `src/server.js` 解决的是同一个问题,只是换了宿主。
@@ -104,11 +111,38 @@ printf 'storeFile=release.jks\nstorePassword=…\nkeyAlias=dsh-android\nkeyPassw
 `app/build.gradle` 里显式 `disable 'ExpiredTargetSdkVersion'`:把这件事说出口,
 而不是让 release apk 永远编不出来。
 
-### 上传的包现在还不是成品
+### 载荷怎么生成
 
-`scripts/release.sh` 写进 Release 说明里的那句要一直留着:**apk 里没有 Node 二进制,
-也没有 dsh 运行时快照**,装上去会一直等一个不存在的 host。运行时仍要 adb 铺,
-见 [PLAN 线 A](../PLAN.md) 里"运行时打进 apk"那一条。
+[`scripts/prepare-runtime.sh`](../scripts/prepare-runtime.sh) 产出 `app/src/main/assets/runtime/`
+(已 gitignore——75 MB 二进制不进仓库):
+
+```sh
+scripts/prepare-runtime.sh --from-device   # 从一台已铺好运行时的设备取 Node 树
+scripts/prepare-runtime.sh                 # 之后用本地缓存的 node.tar 重打
+```
+
+seed 默认取本机 dsh-desktop 的活跃 runtime(`DSH_SEED_SRC` 可覆盖),打包时剪掉
+android-arm64 上永远不会加载的东西:`node-pty`(手持形态本来就不挂它)、几个
+`*-darwin-arm64` 可选依赖、以及 17 MB 的 `sharp-libvips-darwin-arm64`(sharp 在这里
+走 wasm32)。**307 MB → 258 MB**,剪的都是"这台机器上不可能被 require 的文件"。
+
+Node 树目前是 Termux 的 aarch64 构建,从一台手工铺过的设备上取下来的——**它是探针,
+不是发行方案**。按 termux-packages 的配方用自己的前缀重编仍然要做(见
+[PLAN 线 A](../PLAN.md)),而"打进公开分发的 apk"正是让这件事从工程洁癖变成
+许可与分发责任的那一步。
+
+### 两个只有真机才会告诉你的坑
+
+**一、AAPT 会把 `.gz` 资产解开,并且改名。** 最初三个载荷叫 `node.tar.gz`,打进 apk
+以后变成 `assets/runtime/node.tar`——应用按自己写的名字去 open,得到
+`FileNotFoundException`;而 Java 侧的 `GZIPInputStream` 拿到的是已经解压的 tar,
+在 tar 还阻塞等输入时就悄悄结束了,表现为"卡住",不是报错。**结论:载荷用 `.tar`,
+压缩交给 apk。**
+
+**二、`/data/user/0/<包名>` 本身是一条指向 `/data/data/<包名>` 的符号链接。** 于是
+"absolutePath 和 canonicalPath 不同就是符号链接"这个常见写法,会把这个应用数据目录
+下的**每一个文件**都判成符号链接。递归删除因此退化成对一个非空目录调用 `delete()`,
+整个安装在第一步就失败。判定要用 `Os.lstat` + `S_ISLNK`,不是路径比较。
 
 ## 待验证
 

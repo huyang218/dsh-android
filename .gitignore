@@ -9,3 +9,9 @@ node_modules/
 keystore.properties
 *.jks
 *.keystore
+
+# 运行时载荷:75MB 的二进制,由 scripts/prepare-runtime.sh 生成,不进仓库
+app/src/main/assets/
+
+# 从设备取来的 Node 树,由 scripts/prepare-runtime.sh --from-device 生成
+vendor/

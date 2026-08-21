@@ -30,20 +30,27 @@
 
 ## 状态
 
-**证伪点已经过了。** 2026-08-20,在 API 28 / arm64-v8a 模拟器上,Node 24.18.0 起了
-`dsh web`,`curl` 拿到 **HTTP 200**;`node:sqlite` 可用,`sharp` 落到 wasm。所以这个
-项目不再是"看上去可行",而是"跑过一次"。细节和踩到的三个坑见
-[PLAN.md 线 A](PLAN.md#线-anode-在手机上把-dsh-起起来证伪点)。
+**装完就能用了。** 2026-08-21,Android 15 / API 35 模拟器上:一个 84 MB 的 apk 里带着
+Node 二进制和 dsh 运行时快照,首次启动自己解包,前台服务拉起 host,WebView 里建会话、
+发消息、**拿到了模型回复**。开发机上没有任何进程参与,`adb` 只用来装 apk。
 
-剩下的是[两条并行的线](PLAN.md#两条线并行):
+一路上撞到的、值得单独记住的三件事:
 
-- **线 A(已过证伪点)**:把这套东西装进 apk,由前台服务持有;用自己的前缀重编 Node。
+- **SELinux 不给应用做硬链接**,而 dsh 用 `link(2)` 发布会话日志和附件——表现是每个
+  新会话的第一条消息必失败。已由 [`packages/storage-no-hardlink/`](packages/storage-no-hardlink/) 顶掉那两处。
+- **`transform` 会俘获 `position:fixed` 的后代**,于是从侧边栏打开的 Settings 被压进
+  抽屉那 300px 里。抽屉改用 `left` 位移。
+- **AAPT 会把 `.gz` 资产解开并改名**,`/data/user/0/<包名>` 本身又是个符号链接——两条
+  都只在真机上才会告诉你,细节在 [docs/packaging.md](docs/packaging.md)。
+
+还没做的:用自己的前缀重编 Node(现在是 Termux 的二进制,**是探针不是发行方案**)、
+真机验证(目前只跑过模拟器)、附件路径、进程守护与退避重启。
+
+[两条并行的线](PLAN.md#两条线并行):
+
+- **线 A(证伪点已过,运行时已进 apk)**:剩重编 Node、进程守护、双槽位更新。
 - **线 B(工作量大头)**:移动端的 client 插件。它**不依赖线 A**——在 Mac 上起
   `dsh web`、浏览器开手机视口就能开发,反馈快得多。
-
-代价是线 A 若失败,线 B 的产出对本项目无用(它只能服务"手机浏览器连桌面 host",
-而那是明确不做的形态)。接受这个代价,因为布局层最耗时间,且它会反过来暴露名册
-该留哪些行。
 
 - 可行性结论与证据:[docs/feasibility.md](docs/feasibility.md)
 - 分发与打包形态:[docs/packaging.md](docs/packaging.md)

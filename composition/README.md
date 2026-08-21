@@ -25,8 +25,10 @@ packages/storage-no-hardlink/ → $DSH_HOME/profiles/handheld/node_modules/dsh-p
 路径**:host 半边会加载,但客户端名册只收按包名装进 profile 的行,bundle 不会被服务,
 `/plugins/<id>/client.js` 404,界面照样是桌面三栏。
 
-设备上眼下是 adb 铺进去的实目录(`adb push` 不保留软链,所以不能照搬 Mac 那边
-pnpm 的 `link:`);打进 apk 后由解包器落到同一路径,`bundles` 那行不用动。
+这两个包由 [`scripts/prepare-runtime.sh`](../scripts/prepare-runtime.sh) 打进
+`assets/runtime/composition.tar`,首启时由 `RuntimeInstaller` 解到上面那条路径——
+是**实目录**,不是 Mac 那边 pnpm 的 `link:`(符号链接指向一个手机上不存在的 checkout)。
+`bundles` 那行两边一样,不用动。
 
 **两层都要改,漏一层就坏,而且坏得不明显。** 主机编排(`profiles/`)决定哪些服务
 存在;agent 预设(`agent-presets/`)决定模型能看见哪些工具。出厂的两个预设

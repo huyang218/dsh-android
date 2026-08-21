@@ -60,8 +60,12 @@ HTTP 200  11948 bytes  0.013751s
       `agent-preset-invalid`——出厂预设都假设有 shell,所以手持形态要自带 agent 预设,
       不只是改主机编排。整套编排已收进 [`composition/`](composition/README.md)。
 - [ ] 按 termux-packages 的配方用自己的前缀重编(见下,**仍然要做,但不再是前置**)
-- [ ] 运行时打进 apk(现在还是用 adb 铺进应用数据目录,`Runtime.java` 已经把布局
-      收在一处,换成 apk 内解包时不用改别处)
+- [x] **运行时打进 apk(2026-08-21 完成)**:三个 tar 进 assets(node 90 MB /
+      seed 265 MB / composition 110 KB),`RuntimeInstaller` 首启解包,之后靠 stamp
+      跳过。**84 MB 的 apk,装完不需要电脑**。解包实测 node 0.9s、seed 4.0s、
+      composition 0.03s。`Runtime.java` 那句"换成 apk 内解包时不用改别处"成立了——
+      布局没动。两个踩到的坑(AAPT 解 `.gz`、`/data/user/0` 本身是符号链接)见
+      [packaging.md](docs/packaging.md)。
 - [ ] 进程守护与退避重启;应用退出时整树收干净
 
 **这一步跑不通,整个方案作废——现在它跑通了,剩下的都是工程量。**
@@ -197,9 +201,11 @@ UI 开发要用现代系统镜像(`system-images;android-35;google_apis;arm64-v8
       [feasibility 四点七](docs/feasibility.md#四点七selinux-不给应用做硬链接),
       实现在 [`packages/storage-no-hardlink/`](packages/storage-no-hardlink/)。
       实测:`session.jsonl.zstd` 落地 5175 字节,无残留 `.tmp`,不再有 `denied { link }`。
-- [ ] 真机上建会话、发一条消息、拿到模型回复。**当前卡在没配 API key**
-      (`llm-deepseek: MISSING_CREDENTIAL`),不是代码问题;凭据要走 Models 页写进
-      credentials 服务。顺带:凭据存储长期要落到 Android Keystore(里程碑 4)。
+- [x] **建会话、发一条消息、拿到模型回复**(2026-08-21,Android 15 / API 35 模拟器,
+      **运行时来自 apk 解包**):新会话 `packaged-runtime` 建起来、消息发出去、模型
+      回了话(LLM 5 秒,87 tok/s),会话日志正常落盘、无残留 `.tmp`。模型自己报的
+      能力面也对上了:"I have no shell, so I can only read/write files"。
+      **仍未在真机上跑过**,只在模拟器上。凭据存储长期要落到 Android Keystore(里程碑 4)。
 - [ ] **附件那处只做了实现,没实测**——要发一张图才走得到,发图路径本身也没验过
 
 ## 里程碑 4:变成一个真的应用

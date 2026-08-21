@@ -46,8 +46,9 @@ public class NodeService extends Service {
     /** Loopback port the host binds. Matches {@link MainActivity#HOST_URL}. */
     public static final int PORT = 3080;
 
-    private Process node;
+    private volatile Process node;
     private Thread reaper;
+    private Thread starter;
 
     @Override
     public void onCreate() {
@@ -57,20 +58,39 @@ public class NodeService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        if (node == null) {
-            try {
-                node = spawn();
-                watch(node);
-            } catch (IOException e) {
-                Log.e(TAG, "failed to start the dsh host", e);
-                stopSelf();
-                return START_NOT_STICKY;
-            }
+        if (node == null && starter == null) {
+            // Off the main thread: first launch unpacks ~250 MB out of the apk
+            // before there is anything to spawn, and doing that inline would
+            // hold the main thread long past an ANR.
+            starter = new Thread(this::bringUp, "dsh-host-start");
+            starter.start();
         }
         // Not START_STICKY: a restart with a null Intent would have to re-derive
         // the runtime layout, and a host that died is a fact the UI should see
         // rather than something silently papered over.
         return START_NOT_STICKY;
+    }
+
+    /**
+     * Get from "an apk is installed" to "a host is listening", in order.
+     *
+     * <p>The unpack step is skipped on every launch but the first after an
+     * install or an update — {@link RuntimeInstaller#isCurrent} compares the
+     * stamp the apk carries against the one the data directory was left with.
+     */
+    private void bringUp() {
+        try {
+            if (!RuntimeInstaller.isCurrent(this)) {
+                Log.i(TAG, "unpacking the runtime this apk carries");
+                RuntimeInstaller.install(this, this::notifyNow);
+            }
+            node = spawn();
+            watch(node);
+        } catch (IOException e) {
+            Log.e(TAG, "failed to start the dsh host", e);
+            notifyNow("dsh host failed to start: " + e.getMessage());
+            stopSelf();
+        }
     }
 
     /**
@@ -139,6 +159,7 @@ public class NodeService extends Service {
 
     @Override
     public void onDestroy() {
+        if (starter != null) starter.interrupt();
         if (reaper != null) reaper.interrupt();
         if (node != null) {
             // The tree must not outlive the service that owns it.

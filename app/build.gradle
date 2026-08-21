@@ -21,8 +21,8 @@ android {
         // from the data directory (Node as an ordinary process). Termux has
         // held this posture for years. See docs/packaging.md.
         targetSdk 28
-        versionCode 1
-        versionName '0.1.0-dev'
+        versionCode 2
+        versionName '0.2.0-dev'
 
         buildConfigField 'String', 'DEV_URL', "\"${project.findProperty('dsh.devUrl') ?: 'http://10.0.2.2:3099'}\""
     }

@@ -65,6 +65,13 @@ public class MainActivity extends Activity {
     /** How long to wait for the host to bind before saying so. */
     private static final long STARTUP_TIMEOUT_MS = 90_000L;
 
+    /**
+     * The same, for a launch that has to unpack first. Writing ~250 MB of small
+     * files takes minutes on a slow device, and timing out on a working install
+     * would be the most confusing failure this screen could produce.
+     */
+    private static final long FIRST_RUN_TIMEOUT_MS = 15 * 60_000L;
+
     private final Handler ui = new Handler(Looper.getMainLooper());
     private WebView web;
     private TextView status;
@@ -85,18 +92,24 @@ public class MainActivity extends Activity {
             return;
         }
 
-        if (!Runtime.isProvisioned(this)) {
-            setContentView(notice("No runtime installed.\n\nThis build does not carry the Node"
-                    + " and dsh trees yet; they are provisioned from the build machine."
+        boolean firstRun = !RuntimeInstaller.isCurrent(this);
+        if (firstRun && RuntimeInstaller.packagedStamp(this) == null && !Runtime.isProvisioned(this)) {
+            // A build without payloads is a development shape, not a user one:
+            // say which, rather than sitting on a port that will never open.
+            setContentView(notice("No runtime installed.\n\nThis build carries no Node and dsh"
+                    + " trees, and none have been provisioned into its data directory."
                     + "\n\nSee PLAN.md 线 A."));
             return;
         }
 
-        status = notice("Starting the dsh host on this device…");
+        status = notice(firstRun
+                ? "First run: unpacking the runtime this app carries.\n\nThis takes a minute or"
+                        + " two, and only happens after an install or an update."
+                : "Starting the dsh host on this device…");
         setContentView(status);
 
         startService(new Intent(this, NodeService.class));
-        awaitHost();
+        awaitHost(firstRun ? FIRST_RUN_TIMEOUT_MS : STARTUP_TIMEOUT_MS);
     }
 
     /**
@@ -107,9 +120,9 @@ public class MainActivity extends Activity {
      * this only needs to know that something is listening — the WebView's own
      * load is what proves the client is actually being served.
      */
-    private void awaitHost() {
+    private void awaitHost(final long budget) {
         new Thread(() -> {
-            long deadline = System.currentTimeMillis() + STARTUP_TIMEOUT_MS;
+            long deadline = System.currentTimeMillis() + budget;
             while (!stopped && System.currentTimeMillis() < deadline) {
                 if (portIsOpen()) {
                     ui.post(this::showClient);
@@ -124,7 +137,7 @@ public class MainActivity extends Activity {
             }
             if (!stopped) {
                 ui.post(() -> status.setText("The dsh host did not come up within "
-                        + (STARTUP_TIMEOUT_MS / 1000) + "s.\n\nIts output is in "
+                        + (budget / 1000) + "s.\n\nIts output is in "
                         + Runtime.logFile(this).getAbsolutePath()));
             }
         }, "dsh-host-wait").start();
