@@ -1,0 +1,31 @@
+# dsh-plugin-storage-no-hardlink bundle layer: swap the two stores that
+# publish files with link(2) for subclasses that do not.
+#
+# Android's SELinux denies `link` to app domains on the app's own data files
+# (audit record quoted in lib/publish.js). It is not a permission, and
+# targetSdk does not move it. Both upstream rows therefore fail on device and
+# nowhere else:
+#
+#  * session-persistence-jsonl — every session's FIRST turn dies with
+#    `EACCES: permission denied, link '...session.jsonl.zstd.<hex>.tmp'`.
+#    The UI shows "This turn failed" and the host log says nothing.
+#  * attachment-local — same syscall, but only when an image is attached, and
+#    the EACCES arrives wrapped as ATTACHMENT_WRITE_FAILED.
+#
+# The rows are swapped, not patched in place: a loader patch treats `name` as
+# a GUARD ("patch: name mismatch for %C ... skipping"), not an override, so
+# pointing an existing id at a different package is silently a no-op. Disable
+# plus insert is the only way to change what a row loads — and it means this
+# layer must also restate the config the disabled row carried, which for the
+# session store is its root.
+- id: session-persistence-jsonl
+  disabled: true
+- id: attachment-local
+  disabled: true
+- insert:
+    - id: session-persistence-no-hardlink
+      name: dsh-plugin-storage-no-hardlink/session-persistence
+      config:
+        root: !!js dshHomePath('sessions')
+    - id: attachment-no-hardlink
+      name: dsh-plugin-storage-no-hardlink/attachment
