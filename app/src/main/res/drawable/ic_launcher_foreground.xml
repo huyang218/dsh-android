@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Adaptive-icon foreground. The 108dp canvas is masked down to a ~72dp circle
-  by the launcher, so everything meaningful stays inside the middle 66%.
+  Adaptive-icon foreground: a DH monogram, the app's initials.
 
-  The mark is the project in one picture: a device with something running
-  inside it. Deliberately NOT the DeepSeek whale — this is an unofficial
-  project and borrowing upstream's mark would claim an endorsement it does
-  not have.
+  The 108dp canvas is masked down to a ~72dp CIRCLE by most launchers, and a
+  circle is narrower than the square safe zone everywhere except its equator:
+  at the top of the letters (y=40) the visible width is only ±33dp, not ±36.
+  The first cut of this icon used the full square and lost the H's right stem
+  and the dot to that mask. Everything now sits inside x=34..82, y=40..68.
+
+  Deliberately a plain letterform with no DeepSeek element in it. This app runs
+  the DeepSeek Harness runtime but is not published by DeepSeek, and an icon
+  that borrowed their mark would claim otherwise on every home screen it lands
+  on. The blue dot is this project's own vocabulary — the same "something is
+  running" dot the first-run screen uses.
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -14,14 +20,18 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:pathData="M43.5,28 h21 a6.5,6.5 0 0 1 6.5,6.5 v39 a6.5,6.5 0 0 1 -6.5,6.5 h-21 a6.5,6.5 0 0 1 -6.5,-6.5 v-39 a6.5,6.5 0 0 1 6.5,-6.5 z"
-        android:strokeWidth="4.5"
-        android:strokeColor="#F5F7FA" />
+        android:pathData="M34,40 v28 h9 a14,14 0 0 0 0,-28 z"
+        android:strokeWidth="6"
+        android:strokeColor="#F5F7FA"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round" />
     <path
-        android:pathData="M54,45.5 m-8.5,0 a8.5,8.5 0 1,0 17,0 a8.5,8.5 0 1,0 -17,0"
+        android:pathData="M63,40 v28 M79,40 v28 M63,54 h16"
+        android:strokeWidth="6"
+        android:strokeColor="#F5F7FA"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M79,40 m-3.5,0 a3.5,3.5 0 1,0 7,0 a3.5,3.5 0 1,0 -7,0"
         android:fillColor="#4C8DF6" />
-    <path
-        android:pathData="M44,67 h20 a3,3 0 0 1 0,6 h-20 a3,3 0 0 1 0,-6 z"
-        android:fillColor="#F5F7FA"
-        android:fillAlpha="0.55" />
 </vector>

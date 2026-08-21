@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">dsh</string>
+    <string name="app_name">Deepseek Harness</string>
 
     <!-- The shell's own screens. Everything past them is the dsh client's copy. -->
     <string name="state_starting">Starting the dsh host on this device…</string>
