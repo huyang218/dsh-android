@@ -12,7 +12,7 @@
 3. **Node 怎么进 apk** —— 由第 2 条决定:**独立进程**,从应用数据目录直接 exec,
    由前台服务持有。不必走 `libnode.so` + embedder 那条路。
 4. **移动 UI 插件放哪** —— **本仓库 `packages/mobile-layout/`**,不放
-   [`dsh-plugins`](../dsh-plugins)。它跟着 apk 走版本,是这个应用的一部分,不是通用
+   [`dsh-plugins`](https://github.com/huyang218/dsh-plugins)。它跟着 apk 走版本,是这个应用的一部分,不是通用
    插件。但目录沿用那边的**一层平铺**姿势(`packages/<名字>/`),因为生态的扫描器
    只认这一层——留着将来单独发 npm 的余地,成本为零。
 

@@ -5,7 +5,7 @@
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)(`dsh`)的 Android 应用:把 dsh 的 host 和 client **一起装进手机**,不连任何服务器,也不依赖任何一台开着的电脑。
 
 > **非官方项目**,与 DeepSeek 无隶属关系,也未获其背书。与
-> [`dsh-desktop`](../dsh-desktop) 是兄弟项目,共享同一套立意——运行时、存储、进程
+> [`dsh-desktop`](https://github.com/huyang218/dsh-desktop) 是兄弟项目,共享同一套立意——运行时、存储、进程
 > 全部由应用自己持有——但**不共享代码**:桌面端是 Electron 外壳,这里是 Android
 > 应用加一个嵌入式 Node 运行时。
 
@@ -25,7 +25,7 @@
 | **Node 从哪来** | **嵌进 apk,作为独立进程运行** | dsh 要 Node ≥ 22。Termux 的 aarch64 仓库里 `nodejs 26.4.0` 和 `nodejs-lts 24.18.0` 都是现成的,证明 Node 22+ 在 bionic 上能跑;但 Termux 的二进制把前缀写死在 `/data/data/com.termux/files/usr`,不能直接搬,要按它的配方用自己的前缀重编。 |
 | **分发** | **不上 Google Play,GitHub 直发 apk** | 同时解开两道锁:`targetSdk 28` 保留真实 POSIX 路径(否则 agent 没有工作区,这比没有 shell 严重得多),且可执行文件能从数据目录 exec(否则 Node 得编成共享库嵌入)。详见 [docs/packaging.md](docs/packaging.md)。 |
 | **UI** | **WebView + 自己的 client 名册** | dsh 的浏览器客户端是一份由 host 推送的插件名册,shell 本身不做任何编排决策。所以手机 UI 不是 fork 上游布局,而是换一份名册。上游给的是三层杠杆:名册层(哪些 `ui-*` 包不出现)、主题层(`--dsw-*` token)、布局层(顶掉三栏 AppFrame)。前两层是配置级的,布局层要自己写一个包——详见 [feasibility 第四节](docs/feasibility.md#四host-与-client上游架构本来就允许)。 |
-| **移动 UI 插件放哪** | **本仓库 `packages/mobile-layout/`** | 它是这个应用的一部分,跟着 apk 走版本,不是通用插件,所以不放 [`dsh-plugins`](../dsh-plugins)。目录仍按那边的一层平铺姿势(`packages/<名字>/`),保留将来单独发到 npm 的余地。 |
+| **移动 UI 插件放哪** | **本仓库 `packages/mobile-layout/`** | 它是这个应用的一部分,跟着 apk 走版本,不是通用插件,所以不放 [`dsh-plugins`](https://github.com/huyang218/dsh-plugins)。目录仍按那边的一层平铺姿势(`packages/<名字>/`),保留将来单独发到 npm 的余地。 |
 | **host↔client 传输** | **进程内,不走网络** | `@deepseek-ai/dsh-client-connection` 的 in-process carrier 与浏览器 carrier 满足同一抽象。同一台设备上没有远程,也就没有鉴权层要写——上游那道 `/api` trust fence 天然是 loopback。 |
 
 ## 状态

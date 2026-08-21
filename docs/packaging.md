@@ -2,7 +2,7 @@
 
 ## 决定:不上 Google Play,GitHub 直发 apk
 
-和 [`dsh-desktop`](../../dsh-desktop) 一致。这不是妥协,是**同时解开两道锁**的那个选择。
+和 [`dsh-desktop`](https://github.com/huyang218/dsh-desktop) 一致。这不是妥协,是**同时解开两道锁**的那个选择。
 
 ### 它解开了什么
 

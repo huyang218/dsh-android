@@ -73,7 +73,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 参考实现在哪(读,不要 import)
 
-- **`../dsh-desktop`** —— 兄弟项目,Electron 壳。同一批问题它已经答过一遍:
+- **`../dsh-desktop`**([github.com/huyang218/dsh-desktop](https://github.com/huyang218/dsh-desktop))—— 兄弟项目,Electron 壳。同一批问题它已经答过一遍:
   `src/server.js`(进程归属与整树收干净)、`src/runtime.js`(双槽位运行时与更新)、
   `scripts/prepare-seed.mjs`(把当前活跃 runtime 快照成 `seed.tar`)、
   `scripts/prepare-node.mjs`(把 Node 工具链打成 `node-runtime.tgz`)。
@@ -81,7 +81,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **`../dsh-desktop/seed.tar`** —— 事实来源。判定原生模块、composition 出厂行
   (`dsh-base/cordis.patch.yml`)时解这个包看,不要靠记忆。
 - **`~/Documents/code/open/deepseek-harness`** —— dsh 上游源码。
-- **`../dsh-plugins`** —— 插件 monorepo,含自己的 CLAUDE.md 与本机 dsh 运行环境说明。
+- **`../dsh-plugins`**([github.com/huyang218/dsh-plugins](https://github.com/huyang218/dsh-plugins))—— 插件 monorepo,含自己的 CLAUDE.md 与本机 dsh 运行环境说明。
 
 ## 写文档时的调子
 
