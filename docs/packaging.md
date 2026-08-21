@@ -126,10 +126,13 @@ android-arm64 上永远不会加载的东西:`node-pty`(手持形态本来就不
 `*-darwin-arm64` 可选依赖、以及 17 MB 的 `sharp-libvips-darwin-arm64`(sharp 在这里
 走 wasm32)。**307 MB → 258 MB**,剪的都是"这台机器上不可能被 require 的文件"。
 
-Node 树目前是 Termux 的 aarch64 构建,从一台手工铺过的设备上取下来的——**它是探针,
-不是发行方案**。按 termux-packages 的配方用自己的前缀重编仍然要做(见
-[PLAN 线 A](../PLAN.md)),而"打进公开分发的 apk"正是让这件事从工程洁癖变成
-许可与分发责任的那一步。
+Node 树是 [`vendor/node.tar`](../vendor/),**进仓库**——它是构建输入,没有它别人
+重打不出同一个 apk(90 MB 的 tar 在 git 包里约 33 MB,不碰 GitHub 的 100 MB 硬限制)。
+它目前是 Termux 的 aarch64 构建,从一台手工铺过的设备上取下来的——**是探针,不是发行
+方案**。按 termux-packages 的配方用自己的前缀重编仍然要做(见 [PLAN 线 A](../PLAN.md)),
+而"打进公开分发的 apk"正是让这件事从工程洁癖变成许可与分发责任的那一步:里面的库
+(OpenSSL、ICU、SQLite、zlib、libc++)全是宽松许可,可以分发,但 Apache-2.0 和 ICU
+要求随附许可文本,apk 现在一份都没带。细节见 [`vendor/README.md`](../vendor/README.md)。
 
 ### 两个只有真机才会告诉你的坑
 
