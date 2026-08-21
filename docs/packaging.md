@@ -54,48 +54,47 @@ apk
 Node 以**独立进程**运行,由前台服务持有;应用退出时整树收干净——和 `dsh-desktop`
 里 `src/server.js` 解决的是同一个问题,只是换了宿主。
 
-## 出包与签名:GitHub Actions
+## 出包与签名:本机打包,GitHub 只放结果
 
-工作流在 [`.github/workflows/apk.yml`](../.github/workflows/apk.yml)。push / PR /
-手动都跑,顺序是**先单测再打包**——两个插件包没有依赖,`node --test` 就是全部测试,
-所以这一步几乎不花时间,却能挡住"布局改坏了但 apk 照样出"。
+**apk 不在 CI 里构建**,由维护者在自己机器上打完上传 Release
+([`scripts/release.sh`](../scripts/release.sh))。GitHub Actions 只跑两个插件包的
+单测([`.github/workflows/test.yml`](../.github/workflows/test.yml))。
 
-产物两个:`assembleDebug` 和 `assembleRelease`,都传成 artifact;打 `v*` tag 时额外
-建一个 GitHub Release。
+理由是签名:GitHub 直发没有 Play 站在中间,**签名是用户判断"这次更新和上次同源"的
+唯一依据**,而 Android 不允许换签名覆盖安装——密钥丢了,所有已装用户都得卸载重装。
+在 CI 里签名意味着密钥必须以 secret 的形式存在于 GitHub 上;**在本机签名,密钥根本
+不用离开这台机器**,也就没有那份泄露面。代价是出包这件事不可复现于他人之手,而且
+忘了跑就没有包——对一个非官方项目,这个代价比密钥外置划算。
 
-**这里出的 apk 现在还不能单独用**:里面没有 Node 二进制,也没有 dsh 运行时快照,
-装上去会一直等一个不存在的 host。运行时仍要用 adb 铺进应用数据目录
-([PLAN 线 A](../PLAN.md) 里"运行时打进 apk"那条还开着)。工作流的注释、Release
-说明里都写了这句,别让 artifact 看起来像成品。
+```sh
+scripts/release.sh v0.1.0             # 单测 → assembleRelease → 校验签名 → 建 Release
+scripts/release.sh v0.1.0 --dry-run   # 打包和校验都做,不上传
+```
+
+脚本里三件事是刻意的:
+
+- **先跑单测再打包**。apk 里现在一行 JS 都没有,布局和存储插件坏了它照样能编出来。
+- **找不到 `app-release.apk` 就停**,并说明多半是没配签名。构建产物叫
+  `app-release-unsigned.apk` 时脚本拒绝上传——不签名的包发出去,等于把后续所有更新
+  的路堵死。
+- **用 `apksigner verify` 校验而不是相信**:signingConfig 悄悄回退的话,应该由我们
+  发现,不是由用户发现。
 
 ### 签名
 
-**分发形态决定了签名不是可选项**:GitHub 直发没有 Play 站在中间,签名是用户判断
-"这次更新和上次来自同一个人"的**唯一**依据。而 Android 不允许换签名覆盖安装——
-密钥丢了,所有已安装用户都得卸载重装。
-
-密钥不进仓库,两处各自取用:
-
-| 在哪 | 怎么拿到密钥 |
-|---|---|
-| 本机 | 仓库根目录的 `keystore.properties`(已 gitignore),指向同样 gitignore 掉的 `.jks` |
-| CI | 四个仓库 secret:`KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`,工作流在构建前写出这两个文件,构建后立刻删掉 |
-
-`app/build.gradle` 的判断只有一条:`keystore.properties` 在不在。**不在就照样构建,
-出未签名的 apk**——新克隆的人要能编得动,而未签名这件事会写在文件名里
-(`app-release-unsigned.apk`),不会悄悄用 debug 密钥糊过去。
-
-生成密钥和设置 secret 都是持有凭据的人自己做:
+密钥只存在于本机:仓库根目录的 `keystore.properties`(已 gitignore)指向同样
+gitignore 掉的 `.jks`。`app/build.gradle` 的判断只有一条——`keystore.properties`
+在不在。**不在就照样构建,出未签名的 apk**:新克隆的人要能编得动,而"未签名"会写在
+文件名里,不会悄悄用 debug 密钥糊过去。
 
 ```sh
 keytool -genkeypair -v -keystore release.jks -alias dsh-android \
   -keyalg RSA -keysize 4096 -validity 10000
 printf 'storeFile=release.jks\nstorePassword=…\nkeyAlias=dsh-android\nkeyPassword=…\n' > keystore.properties
-gh secret set KEYSTORE_BASE64 < <(base64 -i release.jks)
-gh secret set KEYSTORE_PASSWORD; gh secret set KEY_ALIAS; gh secret set KEY_PASSWORD
 ```
 
 `-validity 10000`(约 27 年)不是随手写的:密钥过期意味着无法再发布能覆盖安装的更新。
+**备份 `release.jks`**——它没有副本,丢了就换不回来了。
 
 ### lint 那条必须关掉的规则
 
@@ -104,6 +103,12 @@ gh secret set KEYSTORE_PASSWORD; gh secret set KEY_ALIAS; gh secret set KEY_PASS
 检查**,而这个应用不上 Play——`targetSdk 28` 正是整个方案的地基。所以
 `app/build.gradle` 里显式 `disable 'ExpiredTargetSdkVersion'`:把这件事说出口,
 而不是让 release apk 永远编不出来。
+
+### 上传的包现在还不是成品
+
+`scripts/release.sh` 写进 Release 说明里的那句要一直留着:**apk 里没有 Node 二进制,
+也没有 dsh 运行时快照**,装上去会一直等一个不存在的 host。运行时仍要 adb 铺,
+见 [PLAN 线 A](../PLAN.md) 里"运行时打进 apk"那一条。
 
 ## 待验证
 

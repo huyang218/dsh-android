@@ -1,0 +1,31 @@
+# The plugin unit tests, and nothing else.
+#
+# The apk is NOT built here: it is built on a maintainer's machine and uploaded
+# to a Release by hand (scripts/release.sh, docs/packaging.md). That keeps the
+# signing key off GitHub entirely — with GitHub-direct distribution the key is
+# the only thing tying one release to the next, and a key that never leaves the
+# machine cannot leak from a repository secret.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 插件单测
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      # Neither package has dependencies, so there is nothing to install:
+      # `node --test` against the shipped files is the entire suite.
+      - run: npm test --prefix packages/mobile-layout
+      - run: npm test --prefix packages/storage-no-hardlink
