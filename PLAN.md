@@ -172,13 +172,19 @@ HTTP 200  11948 bytes  0.013751s
       ——"The current model does not support images"。这条改不了:`dsh-llm-deepseek`
       把 `inputModalities` 写死成 `["text"]`,**任何 DeepSeek 路由都不可能收图**。
       能收的是 `dsh-llm-pi-ai`(模态读自配置),而 dsh-base **已经把它挂上了**、只是
-      零路由空转。所以这个"插件"里没有代码:`packages/llm-vision-hunyuan/` 只有一份
-      `cordis.patch.yml`,声明一条 `input: [text, image]` 的路由,指向腾讯混元的
-      OpenAI 兼容端点。设备实测:模型选择器里出现「腾讯混元 / 混元视觉 1.5 / 混元 T1
-      视觉」,选中后带图发送不再被拒,停在 `no credential for provider route "hunyuan"`。
-      **模型 ID 和长度抄自腾讯文档,没拿真实 key 打过**——ID 错会以 `UNKNOWN_MODEL`
-      念出来。混元的 key 是 `HUNYUAN_API_KEY`(Bearer),**不是**联网搜索那对 TC3 签名的
-      SecretId/SecretKey;密钥页里两者分行,带标签。
+      零路由空转。所以这个"插件"里没有代码:`packages/llm-routes/` 只有一份
+      `cordis.patch.yml`,声明几条路由——收不收图全看那一行 `input`。
+      现在是智谱 GLM(`glm-5.3` 纯文本、`glm-5v-turbo` 看图)和腾讯云 TokenHub 上的
+      `kimi-k3`(看图)。
+      **GLM-5.3 收不了图**:智谱文档写的是"仅支持文本模态",模型总览里它也归在
+      「文本模型」段。挑多模态模型按名字顺推会踩空——旗舰那个不一定是能看图那个。
+      K3 走 TokenHub 而不是 Moonshot 直连,账号和联网搜索是同一个;但 key 仍是两回事,
+      TokenHub 是 Bearer API Key,不是 TC3 签名的 SecretId/SecretKey。
+      设备实测:模型选择器里五条路由都在,选 Kimi K3 带图发送不再被拒,停在
+      `no credential for provider route "tokenhub"`;反向带着图切到 GLM-5.3,客户端
+      当场拒绝("does not accept image input")。
+      **模型 ID 和长度抄自各家文档,没拿真实 key 打过**——ID 错会以 `UNKNOWN_MODEL`
+      念出来。三个 key 都在密钥页里,分行带标签。
 - [ ] **名册层(最便宜)**:哪些 `ui-*` 压根不进名册——`ui-directory-picker-native`
       仍是候选。~~`ui-settings-plugin-inventory`、settings 的桌面部分~~ 已不必砍:
       覆盖之后它们在手机上是能用的。不适配,是不出现——但能适配就不用砍。

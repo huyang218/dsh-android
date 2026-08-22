@@ -1,0 +1,83 @@
+# 本仓库声明的模型路由。**这个包没有代码**,只有这份 patch。
+#
+# WHY CONFIGURATION AND NOT AN ADAPTER. dsh-llm-deepseek hard-codes
+# `inputModalities: ["text"]` (lib/index.js:447 and :519), so no DeepSeek route
+# will ever take an image no matter what the client attaches — the composer
+# accepts the file and the send is refused with "The current model does not
+# support images". dsh-llm-pi-ai instead reads the modality off the profile
+# (`inputModalities: [...model.input]`), and dsh-base ALREADY MOUNTS IT:
+# "mounted dormant: zero routes ... until a `llm-pi-ai:` settings section
+# supplies provider profiles". This file is that supply, shipped with the apk
+# instead of typed into settings.yaml on a phone.
+#
+# A PATCH REPLACES THE KEY, IT DOES NOT MERGE INTO IT.
+# cordis-plugin-include applies overrides as `target[key] = value`, so the
+# `config:` below REPLACES whatever config the llm-pi-ai row carried. That is
+# safe today only because dsh-base mounts that row with no config at all. If a
+# future dsh gives it one, this file has to carry that too, and the symptom of
+# forgetting would be the other setting silently reverting to its default.
+#
+# PRECEDENCE. The web Models page writes the same `llm-pi-ai:` settings section
+# into $DSH_HOME/settings.yaml, and a settings section overrides the
+# composition entry wholesale. Editing providers there therefore drops these
+# routes rather than merging with them — upstream's order, stated here so it is
+# not diagnosed as the plugin breaking.
+#
+# 每条路由的 key 都来自应用的「密钥」页(HostEnv/KeysActivity 写进 host 的启动
+# 环境),per-request 解析,不落进 dsh 自己的凭据库。
+- id: llm-pi-ai
+  name: '@deepseek-ai/dsh-llm-pi-ai'
+  config:
+    providers:
+      # ── 智谱 GLM ──────────────────────────────────────────────────────────
+      # Hand-declared: pi-ai ships no `zhipu` catalog entry, so endpoint,
+      # protocol and every model fact are stated here.
+      zhipu:
+        displayName: 智谱 GLM
+        apiKeyEnv: ZHIPUAI_API_KEY
+        api: openai-completions
+        baseURL: https://open.bigmodel.cn/api/paas/v4
+        models:
+          # GLM-5.3 IS TEXT-ONLY. 智谱自己的文档写着"仅支持文本模态",它在模型
+          # 总览里也归在「文本模型」下,不在「视觉模型」里。所以它进来是当主力
+          # 文本模型用的,附了图选它一样会被客户端挡下——那不是配置错了。
+          - id: glm-5.3
+            name: GLM-5.3
+            contextWindow: 1000000
+            maxTokens: 128000
+            input: [text]
+          # 看图的那一档。GLM 视觉家族里最新的一个(模型总览「视觉模型」段)。
+          - id: glm-5v-turbo
+            name: GLM-5V-Turbo(看图)
+            contextWindow: 200000
+            maxTokens: 128000
+            input: [text, image]
+
+      # ── 腾讯云 TokenHub(Kimi K3)────────────────────────────────────────
+      # K3 是原生多模态(文本/图像/视频),一个型号就把两件事都干了。
+      #
+      # 走 TokenHub 而不是 Moonshot 直连:同一个腾讯云账号,和这台设备上已经在用
+      # 的联网搜索是一家。**但 key 是两回事**——TokenHub 用它自己控制台里建的
+      # API Key 走 Bearer,不是联网搜索那对 TC3 签名的 SecretId/SecretKey。
+      # 换回直连只要改 baseURL 和 apiKeyEnv 两行。
+      tokenhub:
+        displayName: 腾讯云 TokenHub
+        apiKeyEnv: TOKENHUB_API_KEY
+        api: openai-completions
+        baseURL: https://tokenhub.tencentmaas.com/v1
+        models:
+          - id: kimi-k3
+            name: Kimi K3(看图)
+            contextWindow: 1000000
+            # 文档说 K3 的 max completion tokens 默认 131072,上限更高;这里取
+            # 那个默认值,不去够上限。
+            maxTokens: 131072
+            # TokenHub 对 K3 的图"仅支持 Base64,不支持 URL 直链"——正好是 pi-ai
+            # 唯一会发的形式:它把附件编成 `data:<mime>;base64,<data>` 塞进
+            # image_url(pi-ai/dist/api/openai-completions.js:821),从不发外链。
+            input: [text, image]
+
+# 模型 ID、上下文与输出长度抄自各家公开文档(2026-08-22 读取),**没有拿真实
+# key 打过**。ID 错会以 `UNKNOWN_MODEL` 报出来并念出 ID;长度报大了则是一次被
+# 服务端拒掉的超长请求,而消息那时已经落库,会话会反复重试同一个必失败的请求
+# ——所以宁可往下取,不往上凑。

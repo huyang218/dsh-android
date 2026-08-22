@@ -33,7 +33,7 @@ echo "JAVA_HOME=$JAVA_HOME"
 
 # The tests are seconds and they cover the packages a release can break in ways
 # the apk build cannot see — gradle compiles no JS, so a broken plugin ships.
-# packages/llm-vision-hunyuan has no test script: it is a patch file, not code.
+# packages/llm-routes has no test script: it is a patch file, not code.
 npm test --prefix packages/mobile-layout
 npm test --prefix packages/storage-no-hardlink
 npm test --prefix packages/web-search-tencent

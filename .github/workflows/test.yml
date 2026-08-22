@@ -28,7 +28,7 @@ jobs:
       # No package has dependencies, so there is nothing to install:
       # `node --test` against the shipped files is the entire suite.
       #
-      # packages/llm-vision-hunyuan is absent on purpose — it ships a
+      # packages/llm-routes is absent on purpose — it ships a
       # cordis.patch.yml and no code, so it has no test script to run. What it
       # declares is checked where it takes effect: the route showing up in the
       # model picker on a device.

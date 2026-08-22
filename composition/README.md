@@ -15,7 +15,7 @@ agent-presets/handheld/ → $DSH_HOME/.agent-presets/handheld/
 packages/mobile-layout/       → $DSH_HOME/profiles/handheld/node_modules/dsh-plugin-mobile-layout/
 packages/storage-no-hardlink/ → .../dsh-plugin-storage-no-hardlink/
 packages/web-search-tencent/  → .../dsh-plugin-web-search-tencent/
-packages/llm-vision-hunyuan/  → .../dsh-plugin-llm-vision-hunyuan/
+packages/llm-routes/          → .../dsh-plugin-llm-routes/
 ```
 
 各自顶掉什么:
@@ -25,7 +25,7 @@ packages/llm-vision-hunyuan/  → .../dsh-plugin-llm-vision-hunyuan/
 | `mobile-layout` | 换掉 `ui-layout` 的三栏 AppFrame,顺带给顶栏加了发图的入口 | [四点一](../docs/feasibility.md)、[四点八](../docs/feasibility.md) |
 | `storage-no-hardlink` | 顶掉会话日志和附件两个存储后端的 `link(2)` | [四点七](../docs/feasibility.md#四点七selinux-不给应用做硬链接) |
 | `web-search-tencent` | 多注册一个 search provider 并选中它 | 上游那个要 DeepSeek key |
-| `llm-vision-hunyuan` | 给已挂载但空转的 `llm-pi-ai` 声明一条收图的路由 | [四点八](../docs/feasibility.md) |
+| `llm-routes` | 给已挂载但空转的 `llm-pi-ai` 声明模型路由,含能收图的那几条 | [四点八](../docs/feasibility.md) |
 
 最后一个**没有代码**,只有一份 `cordis.patch.yml`——这不是偷懒,是这层杠杆本来的形状:
 适配器已经在编排里了,缺的只是一条 profile。

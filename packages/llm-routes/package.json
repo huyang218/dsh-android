@@ -1,7 +1,7 @@
 {
-  "name": "dsh-plugin-llm-vision-hunyuan",
+  "name": "dsh-plugin-llm-routes",
   "version": "0.1.0",
-  "description": "A vision (text+image) LLM route for dsh, declared over the already-mounted llm-pi-ai adapter and pointed at Tencent Hunyuan's OpenAI-compatible endpoint.",
+  "description": "The model routes this build offers, declared over the already-mounted llm-pi-ai adapter: 智谱 GLM and Moonshot Kimi, including the vision models that make image input possible at all.",
   "license": "MIT",
   "keywords": [
     "dsh",
@@ -9,12 +9,13 @@
     "deepseek-harness",
     "vision",
     "multimodal",
-    "hunyuan"
+    "glm",
+    "kimi"
   ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/huyang218/dsh-android.git",
-    "directory": "packages/llm-vision-hunyuan"
+    "directory": "packages/llm-routes"
   },
   "type": "module",
   "files": [
