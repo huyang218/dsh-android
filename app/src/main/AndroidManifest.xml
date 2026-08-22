@@ -23,7 +23,17 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
         </activity>
+
+        <!-- The keys the host process is started with; see HostEnv. -->
+        <activity
+            android:name=".KeysActivity"
+            android:exported="true"
+            android:label="@string/keys_title"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- The dsh host itself: a Node process this app owns. -->
         <service

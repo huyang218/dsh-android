@@ -142,10 +142,20 @@ HTTP 200  11948 bytes  0.013751s
       TC3-HMAC-SHA256。上游的 DeepSeek provider **仍然挂着**:掉一个 key 不该等于掉整个
       搜索,换回去只是一行配置。设备实测:插件列表里 `plugin-web-search-tencent` 是
       Enabled,`--dump-config` 里 `searchProvider: tencent-wsa`。
-- [ ] **腾讯的密钥在手机上没地方填**:配置卡片列表是上游 `ui-settings-plugins` 里**写死
-      的**(bash / agent loop / web search 那几张),第三方插件拿不到卡。SecretId/SecretKey
-      现在只能靠 host 进程的环境变量(插件已支持这条回退),而环境变量由 `NodeService`
-      给,所以要在应用侧加一个填密钥的小界面。**这一条不解决,腾讯搜索就是配不上的。**
+- [x] **密钥有地方填了(2026-08-22 实测)**:配置卡片列表是上游 `ui-settings-plugins`
+      里**写死的**,第三方插件拿不到卡——所以走另一扇门:dsh 解析凭据时先看凭据库、
+      再看 host 进程的环境,而**这个应用就是启动 host 的那个进程**。
+      `KeysActivity` + `HostEnv` 把值写进应用私有目录(0600),`NodeService` spawn 时
+      `env.putAll`。入口是长按图标的快捷方式,失败页上也有一个按钮(走到那一屏的人多半
+      正缺 key)。保存后**重启 host**——环境只在 spawn 时读一次,不重启的表现是"key 填了
+      没用"。
+      实测链路:界面填入 → `host-env.properties`(0600)→ `/proc/<node>/environ` 里
+      确实有 `TENCENTCLOUD_SECRET_ID` / `_KEY`。
+      再往前一步,用设备上的 node 拿这套签名打了一次腾讯:`HTTP 200` +
+      `AuthFailure.SecretIdNotFound`——**不是** `SignatureFailure`,说明签名格式被腾讯
+      解开并接受了,只是不认识那个假 ID;同时实地复现了"失败包在 200 里"这件事。
+      **明文存**:和这台设备上的会话日志、dsh 自己的凭据库同一档保护;单独给这一个文件
+      上 Keystore 只会让人误以为整体更安全。Keystore 仍挂在里程碑 4。
 - [ ] **rc.7 客户端里附件入口在哪没找到**:composer 那个 "+" 是命令面板(export /
       feedback / goal / model),不是附件按钮。应用侧已经准备好了,但**用户从界面上
       怎么发图这一步还没验证**——可能要更新的客户端版本,也可能藏在别处。

@@ -12,4 +12,10 @@
     <string name="label_log">host 日志的最后几行:</string>
     <string name="state_failed_timeout">dsh host 在 %1$d 秒内没能起来。</string>
     <string name="state_elapsed">已等待 %1$d 秒</string>
+    <string name="keys_title">密钥</string>
+    <string name="keys_intro">这些值会作为环境变量传给 host 进程。dsh 解析插件的凭据时先看自己的凭据库、再看这里——对第三方插件来说,这是唯一能给它密钥的地方。</string>
+    <string name="keys_save">保存并重启 host</string>
+    <string name="keys_saved">已保存,host 正在重启。</string>
+    <string name="keys_open">密钥</string>
+    <string name="keys_storage_note">存在应用私有目录里,未加密——和这台设备上的会话日志、dsh 自己的凭据库是同一档保护。</string>
 </resources>

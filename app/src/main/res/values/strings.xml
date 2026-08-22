@@ -15,4 +15,10 @@
     <string name="label_log">Last lines of the host log:</string>
     <string name="state_failed_timeout">The dsh host did not come up within %1$ds.</string>
     <string name="state_elapsed">%1$ds</string>
+    <string name="keys_title">Keys</string>
+    <string name="keys_intro">Values the host process is started with. dsh looks for a plugin\'s credential in its own credential store first and here second — for a third-party plugin, this is the only place it can be given one.</string>
+    <string name="keys_save">Save and restart the host</string>
+    <string name="keys_saved">Saved. The host is restarting.</string>
+    <string name="keys_open">Keys</string>
+    <string name="keys_storage_note">Stored in this app\'s private directory, unencrypted — the same protection the session logs and dsh\'s own credential store already have on this device.</string>
 </resources>

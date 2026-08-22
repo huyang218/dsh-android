@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Long-press the launcher icon to reach the keys screen.
+
+  A shortcut rather than a second launcher entry: the keys screen is a rare,
+  deliberate visit, and two icons for one app is clutter on a home screen. It is
+  also reachable from the failure screen, which is where someone who needs it
+  usually ends up.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="keys"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/keys_title"
+        android:shortcutLongLabel="@string/keys_title">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="io.github.huyang218.dshandroid"
+            android:targetClass="io.github.huyang218.dshandroid.KeysActivity" />
+    </shortcut>
+</shortcuts>

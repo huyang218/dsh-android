@@ -437,6 +437,14 @@ public class MainActivity extends Activity {
         retryParams.bottomMargin = dp(16);
         root.addView(retry, retryParams);
 
+        Button keys = new Button(this);
+        keys.setText(getString(R.string.keys_open));
+        keys.setOnClickListener(v -> startActivity(new Intent(this, KeysActivity.class)));
+        LinearLayout.LayoutParams keysParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        keysParams.bottomMargin = dp(16);
+        root.addView(keys, keysParams);
+
         TextView label = new TextView(this);
         label.setText(getString(R.string.label_log));
         label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);

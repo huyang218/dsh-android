@@ -149,6 +149,11 @@ public class NodeService extends Service {
         // Node writes here; the app cache directory is the only temp this
         // process is allowed to assume, and the system may reclaim it.
         env.put("TMPDIR", getCacheDir().getAbsolutePath());
+        // Whatever the keys screen saved. dsh resolves a plugin's credential
+        // through the credentials service first and this environment second,
+        // and for a third-party plugin the second door is the only one open —
+        // the Plugins page renders a list of sections compiled into the client.
+        env.putAll(HostEnv.load(this));
 
         Log.i(TAG, "starting host: " + cmd);
         return pb.start();
