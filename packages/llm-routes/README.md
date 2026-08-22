@@ -27,19 +27,40 @@ routes ... until a `llm-pi-ai:` settings section supplies provider profiles"。
 
 | 路由 | 型号 | 收图 | key |
 |---|---|---|---|
-| 智谱 GLM | `glm-5.3` | ✗ | `ZHIPUAI_API_KEY` |
-| 智谱 GLM | `glm-5v-turbo` | ✓ | 同上 |
-| 腾讯云 TokenHub | `kimi-k3` | ✓ | `TOKENHUB_API_KEY` |
+| 智谱 GLM(直连) | `glm-5.3` | ✗ | `ZHIPUAI_API_KEY` |
+| 智谱 GLM(直连) | `glm-5v-turbo` | ✓ | 同上 |
+| 腾讯云 TokenHub | `kimi-k3` | ✗ | `TOKENHUB_API_KEY` |
 
 **GLM-5.3 收不了图。** 智谱文档写的是"仅支持文本模态",模型总览里它也归在「文本模型」
-段而不是「视觉模型」段。它在这里是当主力文本模型用的;附了图再选它,一样会被客户端挡
-在门二上——那不是配置错了。看图请选 `GLM-5V-Turbo` 或 `Kimi K3`。
+段而不是「视觉模型」段。挑多模态模型时按名字顺推会踩空——旗舰那个不一定是能看图那个。
 
-K3 走的是腾讯云 TokenHub,不是 Moonshot 直连——同一个腾讯云账号,和联网搜索是一家。
-**但 key 是两回事**:TokenHub 用它控制台里建的 API Key 走 Bearer,不是联网搜索那对 TC3
-签名的 SecretId/SecretKey。换成直连只要改 `baseURL` 和 `apiKeyEnv` 两行。
+**TokenHub 这条路由上一个能收图的都没有,这是实测出来的。** 2026-08-23 在真机(模拟器)
+上拿真实 key 逐个试过:
 
-key 填在应用的「密钥」页里。DeepSeek 那条路由不受影响,仍然在。
+| 型号 | 结果 |
+|---|---|
+| `kimi-k3` | 200、流式正常,模型答"我没有收到任何图片附件",Input 2.1K token |
+| `hy-vision-2.0-instruct` | 同上,Input 772 token |
+| `deepseek/deepseek-v4-flash-vision-exp` | 同上,Input 2.5K token |
+| `glm-5v-turbo` | `402 endpoint is inactive`(账号未开通) |
+| `hunyuan-turbos-vision-video-20250728`(HY-Vision-Video) | `402`,且腾讯能力表写着它「图片理解:不支持」 |
+
+而我们发出去的东西是合规的——把这条路由指到设备本地的桩服务器截下真实请求体,
+`image_url.url` 是 `data:image/png;base64,…`(20902 字符),`model` 和
+`Authorization: Bearer` 全对。
+
+差别在形式:TokenHub 的《多模态理解》接口把 `image_url.url` 定义成**图片 URL 链接**
+(还规定封装格式和 10MB 上限),而 pi-ai 只会内联 base64、从不发外链
+(`pi-ai/dist/api/openai-completions.js:821`)。那份文档还把 `role` 限定为 `user` 一种,
+也就是说它压根不是通用对话接口,装不下 dsh 的 system + tools + 历史。
+
+**所以要在这个 app 里发图,得用一个原生吃 data URI 的直连厂商接口。** 现成的是智谱那条
+(补个智谱 key 即可)。另外两条各是一块配置的事:
+
+| 想用 | baseURL | apiKeyEnv | 型号 |
+|---|---|---|---|
+| Moonshot 直连 | `https://api.moonshot.cn/v1` | `MOONSHOT_API_KEY` | `kimi-k3` |
+| 混元直连 | `https://api.hunyuan.cloud.tencent.com/v1` | `HUNYUAN_API_KEY` | `hunyuan-vision-1.5-instruct` |
 
 ## 待验证
 

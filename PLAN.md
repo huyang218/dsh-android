@@ -180,11 +180,22 @@ HTTP 200  11948 bytes  0.013751s
       「文本模型」段。挑多模态模型按名字顺推会踩空——旗舰那个不一定是能看图那个。
       K3 走 TokenHub 而不是 Moonshot 直连,账号和联网搜索是同一个;但 key 仍是两回事,
       TokenHub 是 Bearer API Key,不是 TC3 签名的 SecretId/SecretKey。
-      设备实测:模型选择器里五条路由都在,选 Kimi K3 带图发送不再被拒,停在
-      `no credential for provider route "tokenhub"`;反向带着图切到 GLM-5.3,客户端
-      当场拒绝("does not accept image input")。
-      **模型 ID 和长度抄自各家文档,没拿真实 key 打过**——ID 错会以 `UNKNOWN_MODEL`
-      念出来。三个 key 都在密钥页里,分行带标签。
+      设备实测:反向那条最能说明门二存在——带着图切到 GLM-5.3,客户端当场拒绝
+      ("does not accept image input")。
+- [ ] **发图还差最后一跳:得有一个原生吃 data URI 的直连厂商接口(2026-08-23 实测)**。
+      拿真实 key 在 TokenHub 上逐个试过,一个能收图的都没有:`kimi-k3`、
+      `hy-vision-2.0-instruct`、`deepseek/deepseek-v4-flash-vision-exp` 三个都是
+      200、流式正常、模型答"我没有收到任何图片附件"(Input 分别 2.1K / 772 / 2.5K
+      token);`glm-5v-turbo` 和 `hunyuan-turbos-vision-video-20250728` 是
+      `402 endpoint is inactive`,而后者腾讯的能力表本来就写着「图片理解:不支持」。
+      **我们发的是对的**:把路由指到设备本地桩服务器截下真实请求体,
+      `image_url.url` 是 `data:image/png;base64,…`(20902 字符),`model` 和
+      `Authorization: Bearer` 全对。
+      差别在形式:TokenHub《多模态理解》把 `image_url.url` 定义成**图片 URL 链接**,
+      而 pi-ai 只内联 base64、从不发外链;那份文档还把 `role` 限定为 `user` 一种,
+      压根装不下 dsh 的 system + tools + 历史。
+      现成的下一步是智谱直连(`glm-5v-turbo`,配置已在仓库里,缺一个智谱 key),
+      Moonshot 直连和混元直连各是一块配置的事。
 - [ ] **名册层(最便宜)**:哪些 `ui-*` 压根不进名册——`ui-directory-picker-native`
       仍是候选。~~`ui-settings-plugin-inventory`、settings 的桌面部分~~ 已不必砍:
       覆盖之后它们在手机上是能用的。不适配,是不出现——但能适配就不用砍。

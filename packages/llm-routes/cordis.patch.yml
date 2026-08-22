@@ -53,13 +53,31 @@
             maxTokens: 128000
             input: [text, image]
 
-      # ── 腾讯云 TokenHub(Kimi K3)────────────────────────────────────────
-      # K3 是原生多模态(文本/图像/视频),一个型号就把两件事都干了。
+      # ── 腾讯云 TokenHub ──────────────────────────────────────────────────
+      # 账号和联网搜索是同一个。**但 key 是两回事**——TokenHub 用它自己控制台里
+      # 建的 API Key 走 Bearer,不是联网搜索那对 TC3 签名的 SecretId/SecretKey。
       #
-      # 走 TokenHub 而不是 Moonshot 直连:同一个腾讯云账号,和这台设备上已经在用
-      # 的联网搜索是一家。**但 key 是两回事**——TokenHub 用它自己控制台里建的
-      # API Key 走 Bearer,不是联网搜索那对 TC3 签名的 SecretId/SecretKey。
-      # 换回直连只要改 baseURL 和 apiKeyEnv 两行。
+      # 这条路由上没有一个能收图的型号,而这是实测出来的结论,不是省事:
+      #
+      #   kimi-k3                              200,流式正常,模型答"我没有收到
+      #                                        任何图片附件",Input 2.1K token
+      #   hy-vision-2.0-instruct               同上,Input 772 token
+      #   deepseek/deepseek-v4-flash-vision-exp 同上,Input 2.5K token
+      #   glm-5v-turbo                         402 endpoint is inactive
+      #   hunyuan-turbos-vision-video-20250728 402,且腾讯的能力表写着它
+      #                                        「图片理解:不支持」(只看视频)
+      #
+      # 而我们发出去的是合规的:把这条路由指到设备本地一个桩服务器截下真实请求
+      # 体,`image_url.url` 是 `data:image/png;base64,…`(20902 字符),`model`、
+      # `Authorization: Bearer` 全对。
+      #
+      # 差别在于形式:TokenHub 的《多模态理解》接口文档把 `image_url.url` 定义成
+      # **图片 URL 链接**(还规定了封装格式和 10MB 上限),而 pi-ai 只会内联
+      # base64、从不发外链。那份文档还把 `role` 限定为 `user` 一种,也就是说它
+      # 根本不是一个通用对话接口,装不下 dsh 的 system + tools + 历史。
+      #
+      # 所以要在这个 app 里发图,得用一个原生吃 data URI 的**直连**厂商接口
+      # (上面的智谱那条就是),TokenHub 这条只作文本用。
       tokenhub:
         displayName: 腾讯云 TokenHub
         apiKeyEnv: TOKENHUB_API_KEY
@@ -67,17 +85,19 @@
         baseURL: https://tokenhub.tencentmaas.com/v1
         models:
           - id: kimi-k3
-            name: Kimi K3(看图)
+            name: Kimi K3
             contextWindow: 1000000
             # 文档说 K3 的 max completion tokens 默认 131072,上限更高;这里取
             # 那个默认值,不去够上限。
             maxTokens: 131072
-            # TokenHub 对 K3 的图"仅支持 Base64,不支持 URL 直链"——正好是 pi-ai
-            # 唯一会发的形式:它把附件编成 `data:<mime>;base64,<data>` 塞进
-            # image_url(pi-ai/dist/api/openai-completions.js:821),从不发外链。
-            input: [text, image]
+            input: [text]
 
-# 模型 ID、上下文与输出长度抄自各家公开文档(2026-08-22 读取),**没有拿真实
-# key 打过**。ID 错会以 `UNKNOWN_MODEL` 报出来并念出 ID;长度报大了则是一次被
-# 服务端拒掉的超长请求,而消息那时已经落库,会话会反复重试同一个必失败的请求
-# ——所以宁可往下取,不往上凑。
+# 模型 ID、上下文与输出长度抄自各家公开文档(2026-08-23 读取)。TokenHub 那条
+# 拿真实 key 打过;智谱直连那条**没有**——手上没有智谱的 key。
+#
+# ID 错会以 `UNKNOWN_MODEL` 报出来并念出 ID;长度报大了则是一次被服务端拒掉的
+# 超长请求,而消息那时已经落库,会话会反复重试同一个必失败的请求——所以宁可往
+# 下取,不往上凑。
+#
+# 最难查的不是这两种,是**声明了 image 而那头其实不看图**:客户端放行、请求
+# 200、流式正常,只有模型说它看不见。上面 TokenHub 那段就是这么撞出来的。
