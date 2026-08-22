@@ -126,6 +126,19 @@ HTTP 200  11948 bytes  0.013751s
       用一张收在 `mobile-layout` 的覆盖表把它改成整屏 + 顶部标签条。
       General / Models / Plugins(含 140 条插件列表)四个页都验过,页面级无横向滚动。
       细节与选择器为什么这么写:[feasibility 四点二](docs/feasibility.md#四点二布局层的两个教训都是实测撞出来的)。
+- [x] **搜索接进来了(2026-08-22 实测)**:缺的不是插件而是预设里那一行——`web` /
+      `web-search-deepseek` / `tool-web` 三行本来就在 dsh-base 出厂编排里,我们也没禁。
+      加回 `tool-web` 后 `session.create` 通过(失败停在 `MISSING_CREDENTIAL`,不是
+      `agent-preset-invalid`),说明预设挂上了;配了 key 就能搜。
+      `fetch: false` 写死在我们自己的预设里,**不是继承**:预设是另一次挂载,config
+      省略时拿的是 schema 默认值 `fetch: true`,靠继承等于悄悄开了个任意 URL 抓取器。
+- [x] **附件的应用侧通了(2026-08-22 实测)**:WebView 不实现 `onShowFileChooser` 就
+      不响应 `<input type=file>`,而且是静默的。补上之后整条链走通——注入一个真按钮、
+      用真实触摸点它,系统相册起来,选中后页面拿到 `1000000039.png / 15658B`,正是推
+      进设备那张图。用系统选择器拿 `content:` URI,不需要任何存储权限。
+- [ ] **rc.7 客户端里附件入口在哪没找到**:composer 那个 "+" 是命令面板(export /
+      feedback / goal / model),不是附件按钮。应用侧已经准备好了,但**用户从界面上
+      怎么发图这一步还没验证**——可能要更新的客户端版本,也可能藏在别处。
 - [ ] **名册层(最便宜)**:哪些 `ui-*` 压根不进名册——`ui-directory-picker-native`
       仍是候选。~~`ui-settings-plugin-inventory`、settings 的桌面部分~~ 已不必砍:
       覆盖之后它们在手机上是能用的。不适配,是不出现——但能适配就不用砍。
@@ -251,7 +264,7 @@ UI 开发要用现代系统镜像(`system-images;android-35;google_apis;arm64-v8
 
 ## 明确不做
 
-- **iOS** —— 见 [feasibility.md 第五节](docs/feasibility.md#五ios排除),不是排期问题
+- **Android 以外的平台** —— 整个方案架在「应用自己 exec 一个二进制」这条通路上,不是排期问题
 - **连接远程 host** —— 那需要自己写鉴权层,而且违背这个项目的前提
 - **fork 上游布局** —— 换名册、加一个布局包,不改 `ui-layout` 本身
 - **复用 dsh-desktop 的代码** —— 借鉴思路,不共享实现
