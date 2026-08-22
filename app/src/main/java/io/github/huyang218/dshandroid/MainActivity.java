@@ -3,6 +3,7 @@ package io.github.huyang218.dshandroid;
 import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Rect;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -12,6 +13,8 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -50,6 +53,9 @@ import java.util.regex.Pattern;
  * page that says nothing useful about what went wrong.
  */
 public class MainActivity extends Activity {
+
+    /** Request code for the attachment picker. */
+    private static final int PICK_FILE = 1;
 
     /** The only URL this app ever loads. */
     private static final String HOST_URL = "http://127.0.0.1:" + NodeService.PORT + "/";
@@ -106,6 +112,8 @@ public class MainActivity extends Activity {
     private volatile boolean stopped;
     /** When this launch attempt began, for the elapsed counter. */
     private long launchedAt;
+    /** The page's pending `<input type=file>`; non-null only while the picker is up. */
+    private ValueCallback<Uri[]> pendingFiles;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -235,6 +243,37 @@ public class MainActivity extends Activity {
         // a loopback host to be opened.
         web.setWebViewClient(new WebViewClient());
 
+        // Attachments. Without this the client's "+" button opens nothing at
+        // all: a WebView refuses `<input type=file>` unless the app answers
+        // onShowFileChooser, and it fails silently — no error in the page, no
+        // log line, just a control that does nothing. The whole image half of
+        // the agent's input depends on these twenty lines.
+        web.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback,
+                    FileChooserParams params) {
+                if (pendingFiles != null) {
+                    // A second request while one is open would strand the first
+                    // callback, and the page waits on it forever.
+                    pendingFiles.onReceiveValue(null);
+                }
+                pendingFiles = callback;
+                try {
+                    // The system picker, not a permission-gated media scan: it
+                    // hands back a content: URI for the one file the person
+                    // chose, so this app never asks for storage access at all.
+                    startActivityForResult(params.createIntent(), PICK_FILE);
+                } catch (RuntimeException e) {
+                    // No activity can serve the intent (a stripped device, or a
+                    // work profile with the picker blocked).
+                    pendingFiles = null;
+                    callback.onReceiveValue(null);
+                    return false;
+                }
+                return true;
+            }
+        });
+
         setContentView(web);
         web.loadUrl(HOST_URL);
         claimLeftEdgeGesture();
@@ -263,6 +302,25 @@ public class MainActivity extends Activity {
             web.setSystemGestureExclusionRects(
                     java.util.Collections.singletonList(new Rect(0, top, dp(24), top + band)));
         });
+    }
+
+    /**
+     * Deliver the picked file back to the page, or an empty result when the
+     * person backed out — the page's promise never settles otherwise, and the
+     * attach button stays stuck.
+     */
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode != PICK_FILE) {
+            super.onActivityResult(requestCode, resultCode, data);
+            return;
+        }
+        ValueCallback<Uri[]> callback = pendingFiles;
+        pendingFiles = null;
+        if (callback == null) return;
+        callback.onReceiveValue(resultCode == RESULT_OK && data != null
+                ? WebChromeClient.FileChooserParams.parseResult(resultCode, data)
+                : null);
     }
 
     /**

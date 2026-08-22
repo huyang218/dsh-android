@@ -8,6 +8,10 @@
 #   tool-bash / tool-pwsh   waiting for `shell`      (no subprocess → no pty)
 #   tool-fs-search          waiting for `subprocess` (its search shells out)
 #
+# `tool-web` is NOT in that family and belongs here: the search it exposes runs
+# server-side through the `web-search-deepseek` row dsh-base already mounts, so
+# it needs no shell, no local index and no native module — only a key.
+#
 # tool-fs STAYS: `ctx.fs` comes from the `fs-sandbox` row, which never touches
 # subprocess. Losing bash costs the agent its commands; losing fs would cost it
 # its subject matter, and that is the difference between a reduced agent and a
@@ -23,9 +27,9 @@
     text: >-
       You are an agent powered by the {{model}} model, running on the user's
       phone. Your working directory is {{cwd}}. You have no shell: there is no
-      command execution and no file search. You read and write files, look at
-      attachments, and talk. Say so plainly when a request needs a command
-      instead of pretending an equivalent.
+      command execution and no local file search. You read and write files,
+      look at attachments, search the web, and talk. Say so plainly when a
+      request needs a command instead of pretending an equivalent.
 
 # Read, write, list. The one tool the handheld form is built around.
 - id: tool-fs
@@ -43,3 +47,23 @@
     # omits it fails to mount, which surfaces as session.create returning
     # `agent-preset-invalid`.
     allowParallelInProgress: true
+
+# Web search. The one way this agent can learn something it was not told and
+# cannot read off the filesystem — worth more here than on a desktop, where the
+# person has a browser one window away.
+#
+# `fetch: false` is stated HERE, not inherited. dsh-base sets it on its own
+# tool-web row, but this preset is a separate mount and an omitted config takes
+# the schema default — which is `fetch: true`. Relying on the base row would
+# have quietly handed the model an arbitrary-URL fetcher on a phone, which is
+# the exact thing dsh disables by default: that provider defers SSRF protection
+# and the model would choose the request target.
+#
+# Search stays on: it is a server-side retrieval the model cannot point
+# anywhere. Needs a DeepSeek key, the same one the Models page writes; without
+# it the tool mounts and fails per call rather than breaking the session.
+- id: tool-web
+  name: '@deepseek-ai/dsh-tool-web'
+  config:
+    search: true
+    fetch: false
