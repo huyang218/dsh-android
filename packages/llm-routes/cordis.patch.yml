@@ -84,6 +84,25 @@
         api: openai-completions
         baseURL: https://tokenhub.tencentmaas.com/v1
         models:
+          # 这条上的图像声明是**有争议的**,留着记号:2026-08-23 在应用里实测,
+          # 它 200、流式正常、Input 2.5K token,但模型答"我没有收到任何图片附件"
+          # ——也就是上面说的那种"一声不吭"的失败。
+          #
+          # 保留 image 是个明确的选择:它是 TokenHub 上唯一一个既在「语言模型」
+          # 表里(带 Function Calling,装得下 dsh 的 system + tools + 历史)、又
+          # 标着 Vision 的型号,是这个网关上最有希望的一条。要坐实它到底能不能
+          # 收内联图,得绕开 agent 的请求形状单独打一次 —— scratchpad 里的
+          # probe-tokenhub.sh 就是干这个的:一张 64x64 纯红图问它什么颜色,
+          # 说红色就是能收,说看不见就是不能,没有中间答案。
+          #
+          # 如果证实不能收,把下面这行改成 `input: [text]`,别留着——声明了却
+          # 收不到,客户端会放行,人会以为是应用坏了。
+          - id: deepseek/deepseek-v4-flash-vision-exp
+            name: DS-V4-Flash-Vision(看图)
+            contextWindow: 1000000
+            maxTokens: 384000
+            input: [text, image]
+
           - id: kimi-k3
             name: Kimi K3
             contextWindow: 1000000

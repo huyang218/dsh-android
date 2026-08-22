@@ -29,7 +29,8 @@ routes ... until a `llm-pi-ai:` settings section supplies provider profiles"。
 |---|---|---|---|
 | 智谱 GLM(直连) | `glm-5.3` | ✗ | `ZHIPUAI_API_KEY` |
 | 智谱 GLM(直连) | `glm-5v-turbo` | ✓ | 同上 |
-| 腾讯云 TokenHub | `kimi-k3` | ✗ | `TOKENHUB_API_KEY` |
+| 腾讯云 TokenHub | `deepseek/deepseek-v4-flash-vision-exp` | ⚠ 存疑 | `TOKENHUB_API_KEY` |
+| 腾讯云 TokenHub | `kimi-k3` | ✗ | 同上 |
 
 **GLM-5.3 收不了图。** 智谱文档写的是"仅支持文本模态",模型总览里它也归在「文本模型」
 段而不是「视觉模型」段。挑多模态模型时按名字顺推会踩空——旗舰那个不一定是能看图那个。
@@ -41,7 +42,7 @@ routes ... until a `llm-pi-ai:` settings section supplies provider profiles"。
 |---|---|
 | `kimi-k3` | 200、流式正常,模型答"我没有收到任何图片附件",Input 2.1K token |
 | `hy-vision-2.0-instruct` | 同上,Input 772 token |
-| `deepseek/deepseek-v4-flash-vision-exp` | 同上,Input 2.5K token |
+| `deepseek/deepseek-v4-flash-vision-exp` | 同上,Input 2.5K token(**仍保留 image 声明**,见下) |
 | `glm-5v-turbo` | `402 endpoint is inactive`(账号未开通) |
 | `hunyuan-turbos-vision-video-20250728`(HY-Vision-Video) | `402`,且腾讯能力表写着它「图片理解:不支持」 |
 
@@ -75,3 +76,20 @@ routes ... until a `llm-pi-ai:` settings section supplies provider profiles"。
 
 在 `cordis.patch.yml` 的 `providers:` 下再加一块就行,不用碰别的地方。要收图就写
 `input: [text, image]`——**这一个数组是图片能不能发出去的唯一开关**。
+
+## 那条存疑的路由
+
+`deepseek/deepseek-v4-flash-vision-exp` 是 TokenHub 上唯一一个既在「语言模型」表里
+(带 Function Calling,装得下 dsh 的 system + tools + 历史)、又标着 Vision 的型号,
+所以它是这个网关上最有希望的一条,声明先留着。
+
+但实测它没看见图。要分清是网关不转内联图、还是 dsh 的请求形状(system + tools + 历史)
+让网关走了别的路,得绕开 agent 单独打一次:
+
+```bash
+scratchpad/probe-tokenhub.sh deepseek/deepseek-v4-flash-vision-exp
+```
+
+一张 64×64 纯红图问它什么颜色。**说红色就是能收,说看不见就是不能,没有中间答案。**
+若证实不能收,把 `input` 改成 `[text]` —— 声明了却收不到,客户端会放行,人会以为是应用
+坏了。
