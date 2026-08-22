@@ -45,8 +45,13 @@ final class HostEnv {
      * produce a credential that silently never resolves.
      */
     static final String[][] KNOWN = {
-        { "TENCENTCLOUD_SECRET_ID", "腾讯云 SecretId" },
-        { "TENCENTCLOUD_SECRET_KEY", "腾讯云 SecretKey" },
+        { "TENCENTCLOUD_SECRET_ID", "腾讯云 SecretId(联网搜索)" },
+        { "TENCENTCLOUD_SECRET_KEY", "腾讯云 SecretKey(联网搜索)" },
+        // A different Tencent product with a different credential system: the
+        // Hunyuan endpoint is OpenAI-compatible and takes a bearer key, not
+        // the TC3-signed SecretId pair above. Listing both, labelled, is the
+        // cheapest way to stop the pair being pasted into the wrong row.
+        { "HUNYUAN_API_KEY", "混元 API Key(图像输入)" },
         { "DEEPSEEK_API_KEY", "DeepSeek API Key" },
     };
 

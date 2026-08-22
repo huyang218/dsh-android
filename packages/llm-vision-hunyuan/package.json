@@ -1,0 +1,36 @@
+{
+  "name": "dsh-plugin-llm-vision-hunyuan",
+  "version": "0.1.0",
+  "description": "A vision (text+image) LLM route for dsh, declared over the already-mounted llm-pi-ai adapter and pointed at Tencent Hunyuan's OpenAI-compatible endpoint.",
+  "license": "MIT",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "vision",
+    "multimodal",
+    "hunyuan"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huyang218/dsh-android.git",
+    "directory": "packages/llm-vision-hunyuan"
+  },
+  "type": "module",
+  "files": [
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "exports": {
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "handheld": {
+      "order": 160
+    }
+  }
+}

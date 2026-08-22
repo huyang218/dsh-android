@@ -8,16 +8,27 @@ agent-presets/handheld/ → $DSH_HOME/.agent-presets/handheld/
 ```
 
 还有第三件东西不在本目录,但和这层绑死:`profiles/handheld/package.json` 的
-`dsh.profile.bundles` 里点名了本仓库的两个插件,**它们必须能从 profile 目录解析出来**。
+`dsh.profile.bundles` 里点名了本仓库的插件,**它们必须能从 profile 目录解析出来**。
 都不是安装自带的行,所以要落到
 
 ```
 packages/mobile-layout/       → $DSH_HOME/profiles/handheld/node_modules/dsh-plugin-mobile-layout/
-packages/storage-no-hardlink/ → $DSH_HOME/profiles/handheld/node_modules/dsh-plugin-storage-no-hardlink/
+packages/storage-no-hardlink/ → .../dsh-plugin-storage-no-hardlink/
+packages/web-search-tencent/  → .../dsh-plugin-web-search-tencent/
+packages/llm-vision-hunyuan/  → .../dsh-plugin-llm-vision-hunyuan/
 ```
 
-(`storage-no-hardlink` 顶掉的是会话日志和附件两个存储后端;为什么非顶不可,见
-[feasibility 四点七](../docs/feasibility.md#四点七selinux-不给应用做硬链接)。)
+各自顶掉什么:
+
+| 包 | 干的事 | 为什么非有不可 |
+|---|---|---|
+| `mobile-layout` | 换掉 `ui-layout` 的三栏 AppFrame,顺带给顶栏加了发图的入口 | [四点一](../docs/feasibility.md)、[四点八](../docs/feasibility.md) |
+| `storage-no-hardlink` | 顶掉会话日志和附件两个存储后端的 `link(2)` | [四点七](../docs/feasibility.md#四点七selinux-不给应用做硬链接) |
+| `web-search-tencent` | 多注册一个 search provider 并选中它 | 上游那个要 DeepSeek key |
+| `llm-vision-hunyuan` | 给已挂载但空转的 `llm-pi-ai` 声明一条收图的路由 | [四点八](../docs/feasibility.md) |
+
+最后一个**没有代码**,只有一份 `cordis.patch.yml`——这不是偷懒,是这层杠杆本来的形状:
+适配器已经在编排里了,缺的只是一条 profile。
 
 `dsh-app-boot` 的 `resolveBundleDir` 只认两个锚点:先安装目录,再 profile 目录——
 后者顺着 Node 的父目录查找命中上面这条路径。解析不到就是启动期 fail loud
@@ -25,7 +36,7 @@ packages/storage-no-hardlink/ → $DSH_HOME/profiles/handheld/node_modules/dsh-p
 路径**:host 半边会加载,但客户端名册只收按包名装进 profile 的行,bundle 不会被服务,
 `/plugins/<id>/client.js` 404,界面照样是桌面三栏。
 
-这两个包由 [`scripts/prepare-runtime.sh`](../scripts/prepare-runtime.sh) 打进
+这些包由 [`scripts/prepare-runtime.sh`](../scripts/prepare-runtime.sh) 打进
 `assets/runtime/composition.tar`,首启时由 `RuntimeInstaller` 解到上面那条路径——
 是**实目录**,不是 Mac 那边 pnpm 的 `link:`(符号链接指向一个手机上不存在的 checkout)。
 `bundles` 那行两边一样,不用动。

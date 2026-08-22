@@ -25,7 +25,13 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
-      # Neither package has dependencies, so there is nothing to install:
+      # No package has dependencies, so there is nothing to install:
       # `node --test` against the shipped files is the entire suite.
+      #
+      # packages/llm-vision-hunyuan is absent on purpose — it ships a
+      # cordis.patch.yml and no code, so it has no test script to run. What it
+      # declares is checked where it takes effect: the route showing up in the
+      # model picker on a device.
       - run: npm test --prefix packages/mobile-layout
       - run: npm test --prefix packages/storage-no-hardlink
+      - run: npm test --prefix packages/web-search-tencent

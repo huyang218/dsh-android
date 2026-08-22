@@ -156,9 +156,29 @@ HTTP 200  11948 bytes  0.013751s
       解开并接受了,只是不认识那个假 ID;同时实地复现了"失败包在 200 里"这件事。
       **明文存**:和这台设备上的会话日志、dsh 自己的凭据库同一档保护;单独给这一个文件
       上 Keystore 只会让人误以为整体更安全。Keystore 仍挂在里程碑 4。
-- [ ] **rc.7 客户端里附件入口在哪没找到**:composer 那个 "+" 是命令面板(export /
-      feedback / goal / model),不是附件按钮。应用侧已经准备好了,但**用户从界面上
-      怎么发图这一步还没验证**——可能要更新的客户端版本,也可能藏在别处。
+- [x] **发图这条链通了(2026-08-22 实测)**:composer 那个 "+" 是命令面板(export /
+      feedback / goal / model),不是附件按钮——`ui-attachment` 是 `ui-conversation`
+      直接 import 的 React 原子库,**没有名册位置可改**,图片只从 `paste` 和 document
+      的 `drop` 进。所以 `mobile-layout` 在顶栏加了入口,拿到文件后合成一个
+      `DragEvent('drop')` 派发到 document,不碰客户端内部的 `createDraftImages`。
+      挡了半天的是应用侧那一句:`FileChooserParams.parseResult` **只读
+      `intent.getData()`**,而多选选择器把结果放在 `ClipData` 里、`getData()` 恒为
+      null(哪怕只选一张)。回调收到 null,页面当成"用户取消了",`change` 永不触发——
+      相册正常开、选完什么都不发生,`logcat` 和页面控制台都干净。实测拿到的是
+      `Intent { flg=0x41 clip={image/* video/* {U(content)}} }`。自己解析 `ClipData`
+      之后:缩略图进草稿,附件对象落在 `attachments/v1/objects/07/…`(15658 字节),
+      `tmp/` 干净,**没有 `denied { link }`**——四点七那两行覆盖第一次被真图走过。
+- [x] **多模态模型接进来了(2026-08-22 实测)**:过了上面那道门,提交时撞的是第二道
+      ——"The current model does not support images"。这条改不了:`dsh-llm-deepseek`
+      把 `inputModalities` 写死成 `["text"]`,**任何 DeepSeek 路由都不可能收图**。
+      能收的是 `dsh-llm-pi-ai`(模态读自配置),而 dsh-base **已经把它挂上了**、只是
+      零路由空转。所以这个"插件"里没有代码:`packages/llm-vision-hunyuan/` 只有一份
+      `cordis.patch.yml`,声明一条 `input: [text, image]` 的路由,指向腾讯混元的
+      OpenAI 兼容端点。设备实测:模型选择器里出现「腾讯混元 / 混元视觉 1.5 / 混元 T1
+      视觉」,选中后带图发送不再被拒,停在 `no credential for provider route "hunyuan"`。
+      **模型 ID 和长度抄自腾讯文档,没拿真实 key 打过**——ID 错会以 `UNKNOWN_MODEL`
+      念出来。混元的 key 是 `HUNYUAN_API_KEY`(Bearer),**不是**联网搜索那对 TC3 签名的
+      SecretId/SecretKey;密钥页里两者分行,带标签。
 - [ ] **名册层(最便宜)**:哪些 `ui-*` 压根不进名册——`ui-directory-picker-native`
       仍是候选。~~`ui-settings-plugin-inventory`、settings 的桌面部分~~ 已不必砍:
       覆盖之后它们在手机上是能用的。不适配,是不出现——但能适配就不用砍。
@@ -247,7 +267,9 @@ UI 开发要用现代系统镜像(`system-images;android-35;google_apis;arm64-v8
       回了话(LLM 5 秒,87 tok/s),会话日志正常落盘、无残留 `.tmp`。模型自己报的
       能力面也对上了:"I have no shell, so I can only read/write files"。
       **仍未在真机上跑过**,只在模拟器上。凭据存储长期要落到 Android Keystore(里程碑 4)。
-- [ ] **附件那处只做了实现,没实测**——要发一张图才走得到,发图路径本身也没验过
+- [x] **附件那处实测了(2026-08-22)**:发一张图走到了 `dsh-attachment-local` 的
+      `saveImage`,对象正常落进 `attachments/v1/objects/`,`tmp/` 无残留,没有新的
+      `denied { link }`。这是那两行覆盖里唯一没被走过的一条,现在两条都走过了。
 
 ## 里程碑 4:变成一个真的应用
 

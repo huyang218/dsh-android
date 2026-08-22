@@ -1,6 +1,7 @@
 package io.github.huyang218.dshandroid;
 
 import android.app.Activity;
+import android.content.ClipData;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.net.Uri;
@@ -318,9 +319,37 @@ public class MainActivity extends Activity {
         ValueCallback<Uri[]> callback = pendingFiles;
         pendingFiles = null;
         if (callback == null) return;
-        callback.onReceiveValue(resultCode == RESULT_OK && data != null
-                ? WebChromeClient.FileChooserParams.parseResult(resultCode, data)
-                : null);
+        callback.onReceiveValue(picked(resultCode, data));
+    }
+
+    /**
+     * The URIs the picker returned, or null when nothing was chosen.
+     *
+     * <p><b>Not {@code FileChooserParams.parseResult}.</b> That helper reads
+     * only {@code intent.getData()}, and a multi-select chooser — which is what
+     * an {@code <input type=file multiple>} asks for — returns its selection in
+     * {@code ClipData} with {@code getData()} left null, EVEN FOR ONE FILE. Fed
+     * through the helper it comes back null, the page reads null as "the person
+     * backed out", and the result is a picker that opens, accepts a photo, and
+     * silently attaches nothing. Measured on API 35: {@code Intent { flg=0x41
+     * clip={image/* video/* {U(content)}} }}.
+     *
+     * @param resultCode - the activity result code.
+     * @param data - the result intent, possibly null.
+     * @return one URI per chosen file, or null.
+     */
+    private static Uri[] picked(int resultCode, Intent data) {
+        if (resultCode != RESULT_OK || data == null) return null;
+        ClipData clip = data.getClipData();
+        if (clip != null && clip.getItemCount() > 0) {
+            Uri[] uris = new Uri[clip.getItemCount()];
+            for (int i = 0; i < uris.length; i++) {
+                uris[i] = clip.getItemAt(i).getUri();
+            }
+            return uris;
+        }
+        Uri single = data.getData();
+        return single == null ? null : new Uri[] { single };
     }
 
     /**

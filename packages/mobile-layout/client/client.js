@@ -40,8 +40,8 @@ window.__ModuleLoader__.load({
     /** Dictionary namespace owned by this plugin (frame chrome copy). */
     const NS = 'mobile-layout'
     /** Frame copy. Registered through ctx.locale so the button follows locale/change live. */
-    const zh = { openSidebar: '打开侧边栏', closeSidebar: '关闭侧边栏' }
-    const en = { openSidebar: 'Open sidebar', closeSidebar: 'Close sidebar' }
+    const zh = { openSidebar: '打开侧边栏', closeSidebar: '关闭侧边栏', attachImage: '添加图片' }
+    const en = { openSidebar: 'Open sidebar', closeSidebar: 'Close sidebar', attachImage: 'Attach an image' }
 
     /** Drawer width when open. 0 is the closed state — the width IS the preference, as upstream. */
     const DRAWER_WIDTH = 300
@@ -204,6 +204,7 @@ window.__ModuleLoader__.load({
 .dshm-menu{display:flex;align-items:center;justify-content:center;width:${TOUCH_TARGET}px;height:${TOUCH_TARGET}px;padding:0;
   border:none;border-radius:10px;background:none;color:var(--dsw-alias-label-primary);cursor:pointer}
 .dshm-menu:hover,.dshm-menu:focus-visible{background:var(--dsw-alias-interactive-bg-hover)}
+.dshm-spacer{flex:1}
 .dshm-main{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .dshm-scrim{position:absolute;inset:0;z-index:10;background:rgba(0,0,0,.45);opacity:0;pointer-events:none;transition:opacity .22s ease}
 .dshm-frame[data-drawer-open] .dshm-scrim,.dshm-frame[data-sheet-open] .dshm-scrim{opacity:1;pointer-events:auto}
@@ -417,6 +418,43 @@ button[class],[role="button"][class],input[class],select[class],textarea[class]{
       }, [actions, drawerOpen, sheetOpen])
       const toggleDrawer = react.useCallback(() => { actions.toggleSidebar() }, [actions])
 
+      // Attach an image, on a device that has neither drag-drop nor a usable
+      // paste target.
+      //
+      // Upstream's composer takes images through exactly two doors — a `paste`
+      // carrying files and a document-level `drop` — because on a desktop that
+      // is how images arrive. A phone has neither: there is nothing to drag,
+      // and the on-screen keyboard's image insertion does not reach the page
+      // as a file paste. So this opens the system picker and knocks on the
+      // door the client already has: a real `drop` event carrying the file.
+      //
+      // Deliberately NOT reaching into the client's store. `createDraftImages`
+      // is internal, and calling it would bind this button to a private shape
+      // that upstream may change without notice; a DragEvent is the seam's own
+      // public surface, and the MIME validation, the limits toast and the rail
+      // all behave exactly as they do for a dropped file.
+      const attach = react.useCallback(() => {
+        const input = document.createElement('input')
+        input.type = 'file'
+        // The four types upstream's imageMediaType() accepts; anything else is
+        // rejected with a toast, so filtering here saves a wasted round trip.
+        input.accept = 'image/png,image/jpeg,image/webp,image/gif'
+        input.multiple = true
+        input.style.display = 'none'
+        input.addEventListener('change', () => {
+          const files = Array.from(input.files ?? [])
+          input.remove()
+          if (files.length === 0) return
+          const data = new DataTransfer()
+          for (const file of files) data.items.add(file)
+          document.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: data }))
+        })
+        document.body.append(input)
+        // The click must stay inside the user gesture that opened it: Chromium
+        // refuses a file dialog opened from anywhere else, silently.
+        input.click()
+      }, [])
+
       return h('div', {
         ref: frameRef,
         className: 'dshm-frame',
@@ -437,6 +475,22 @@ button[class],[role="button"][class],input[class],select[class],textarea[class]{
             h('path', { key: 'a', d: 'M3 5.5h14' }),
             h('path', { key: 'b', d: 'M3 10h14' }),
             h('path', { key: 'c', d: 'M3 14.5h14' }),
+          ])),
+          h('span', { key: 'spacer', className: 'dshm-spacer' }),
+          h('button', {
+            key: 'attach',
+            type: 'button',
+            className: 'dshm-menu',
+            onClick: attach,
+            'aria-label': t('attachImage'),
+          }, h('svg', {
+            width: 20, height: 20, viewBox: '0 0 20 20', fill: 'none',
+            stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round',
+            'aria-hidden': true,
+          }, [
+            h('rect', { key: 'f', x: 2.5, y: 4, width: 15, height: 12, rx: 2.5 }),
+            h('path', { key: 'g', d: 'M2.5 12.5l4-3.5 4 3.2 3-2.4 4 3.2' }),
+            h('circle', { key: 'h', cx: 7.2, cy: 7.8, r: 1.3 }),
           ]))),
         h('div', { key: 'main', className: 'dshm-main' }, renderSlot('conversation', {})),
         h('div', { key: 'scrim', className: 'dshm-scrim', onClick: dismiss }),
