@@ -136,6 +136,16 @@ HTTP 200  11948 bytes  0.013751s
       不响应 `<input type=file>`,而且是静默的。补上之后整条链走通——注入一个真按钮、
       用真实触摸点它,系统相册起来,选中后页面拿到 `1000000039.png / 15658B`,正是推
       进设备那张图。用系统选择器拿 `content:` URI,不需要任何存储权限。
+- [x] **搜索换成腾讯云联网搜索(2026-08-22)**:`packages/web-search-tencent/` 往
+      `ctx.web` 注册一个 provider(`tencent-wsa`),并把 `web.searchProvider` 指过去。
+      接口是 `wsa.tencentcloudapi.com` 的 `SearchPro`(Version 2025-05-08),签名走
+      TC3-HMAC-SHA256。上游的 DeepSeek provider **仍然挂着**:掉一个 key 不该等于掉整个
+      搜索,换回去只是一行配置。设备实测:插件列表里 `plugin-web-search-tencent` 是
+      Enabled,`--dump-config` 里 `searchProvider: tencent-wsa`。
+- [ ] **腾讯的密钥在手机上没地方填**:配置卡片列表是上游 `ui-settings-plugins` 里**写死
+      的**(bash / agent loop / web search 那几张),第三方插件拿不到卡。SecretId/SecretKey
+      现在只能靠 host 进程的环境变量(插件已支持这条回退),而环境变量由 `NodeService`
+      给,所以要在应用侧加一个填密钥的小界面。**这一条不解决,腾讯搜索就是配不上的。**
 - [ ] **rc.7 客户端里附件入口在哪没找到**:composer 那个 "+" 是命令面板(export /
       feedback / goal / model),不是附件按钮。应用侧已经准备好了,但**用户从界面上
       怎么发图这一步还没验证**——可能要更新的客户端版本,也可能藏在别处。

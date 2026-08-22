@@ -1,0 +1,17 @@
+# dsh-plugin-web-search-tencent bundle layer: add the provider, and point the
+# seam at it.
+#
+# Two rows, and both are needed. Registering a provider does not select it:
+# `dsh-web` picks by configured id, and dsh-base sets that id to
+# `deepseek-official`. Adding the row without changing `web.searchProvider`
+# would leave a provider that is mounted, available, and never called.
+#
+# The DeepSeek provider row is deliberately LEFT MOUNTED. Losing a Tencent key
+# should cost you this provider, not search itself — flipping
+# `web.searchProvider` back is then one line rather than a rebuild.
+- id: web
+  config:
+    searchProvider: tencent-wsa
+- insert:
+    - id: web-search-tencent
+      name: dsh-plugin-web-search-tencent
