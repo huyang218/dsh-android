@@ -60,3 +60,13 @@ Node 二进制和 dsh 运行时快照,首次启动自己解包,前台服务拉�
 能借鉴的是**思路**,不是代码:双槽位运行时更新、进程归属与守护、数据快照与恢复、
 插件管理——这些问题在手机上同样存在,而桌面端已经把答案写过一遍。但实现要重写,
 因为承载它们的东西从 Electron 主进程换成了 Android 的前台服务。
+
+## 相关项目
+
+| 项目 | 是什么 |
+| --- | --- |
+| [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | 本应用装进手机的那个运行时,也就是 `dsh` 本身 |
+| [dsh-desktop](https://github.com/huyang218/dsh-desktop) | macOS 与 Windows 桌面应用:安装并更新运行时、持有服务进程与存储、在窗口里管理插件。上面那些问题的桌面版答案都在它的 README 里 |
+| [dsh-plugins](https://github.com/huyang218/dsh-plugins) | `dsh` 的通用插件仓库:模型可调用的能力、运行时包装、Web 客户端扩展。本仓库的 `packages/` 只放属于这个应用的插件,通用的都在那边 |
+
+三者出自同一作者,均为非官方项目,与 DeepSeek 无隶属关系。
