@@ -23,6 +23,34 @@ fi
 cd "$(dirname "$0")/.."
 ROOT=$(pwd)
 
+# HEAD must already be on the remote, or the tag will not contain the code.
+#
+# `gh release create` makes a missing tag from the REMOTE default branch, not
+# from what is checked out here. So an unpushed HEAD produces a Release whose
+# apk was built from code the tag does not point at — which for GitHub-direct
+# distribution is the whole provenance story gone. v0.3.0-dev shipped that way:
+# its tag landed on a commit from well before the work in the apk.
+#
+# Checked, not assumed: this is exactly the kind of thing nobody notices until
+# someone tries to read the source behind a binary.
+git fetch origin --quiet 2>/dev/null || true
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if ! git merge-base --is-ancestor HEAD "origin/$BRANCH" 2>/dev/null; then
+  echo "HEAD 还没推到 origin/$BRANCH。" >&2
+  echo "先 git push,否则 tag 会落在旧提交上,Release 里的 apk 将无源可查。" >&2
+  git --no-pager log --oneline "origin/$BRANCH..HEAD" >&2 || true
+  exit 1
+fi
+
+# A dirty tree is a warning, not a refusal: the apk is built from the working
+# tree, so uncommitted changes are IN it but not in the tag. Naming them is
+# enough — deciding whether that matters is the maintainer's call.
+DIRTY=$(git status --porcelain)
+if [ -n "$DIRTY" ]; then
+  echo "警告:工作区有未提交的改动,它们会进 apk 但不进 tag:" >&2
+  echo "$DIRTY" >&2
+fi
+
 # AGP 8.7.3 wants JDK 17; a newer default JDK on this machine would fail late
 # and confusingly, so resolve it up front.
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "${JAVA_HOME:-}/bin/javac" ]; then
