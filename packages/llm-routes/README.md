@@ -27,16 +27,13 @@ routes ... until a `llm-pi-ai:` settings section supplies provider profiles"。
 
 | 路由 | 型号 | 收图 | key |
 |---|---|---|---|
-| 智谱 GLM(直连) | `glm-5.3` | ✗ | `ZHIPUAI_API_KEY` |
-| 智谱 GLM(直连) | `glm-5v-turbo` | ✓ | 同上 |
 | 腾讯云 TokenHub | `deepseek/deepseek-v4-flash-vision-exp` | ⚠ 存疑 | `TOKENHUB_API_KEY` |
-| 腾讯云 TokenHub | `kimi-k3` | ✗ | 同上 |
+| 腾讯云 TokenHub | `kimi-k3` | ✗(已实测) | 同上 |
 
-**GLM-5.3 收不了图。** 智谱文档写的是"仅支持文本模态",模型总览里它也归在「文本模型」
-段而不是「视觉模型」段。挑多模态模型时按名字顺推会踩空——旗舰那个不一定是能看图那个。
+一个 key,一条路由。上游的 DeepSeek 官方路由不受影响,仍然在。
 
-**TokenHub 这条路由上一个能收图的都没有,这是实测出来的。** 2026-08-23 在真机(模拟器)
-上拿真实 key 逐个试过:
+**这条路由上没有一个型号确定能收图,而这是实测出来的。** 2026-08-23 在模拟器上拿真实
+key 逐个试过:
 
 | 型号 | 结果 |
 |---|---|
@@ -55,13 +52,13 @@ routes ... until a `llm-pi-ai:` settings section supplies provider profiles"。
 (`pi-ai/dist/api/openai-completions.js:821`)。那份文档还把 `role` 限定为 `user` 一种,
 也就是说它压根不是通用对话接口,装不下 dsh 的 system + tools + 历史。
 
-**所以要在这个 app 里发图,得用一个原生吃 data URI 的直连厂商接口。** 现成的是智谱那条
-(补个智谱 key 即可)。另外两条各是一块配置的事:
+**要接一个原生吃 data URI 的直连厂商接口,各是一块配置的事:**
 
 | 想用 | baseURL | apiKeyEnv | 型号 |
 |---|---|---|---|
-| Moonshot 直连 | `https://api.moonshot.cn/v1` | `MOONSHOT_API_KEY` | `kimi-k3` |
 | 混元直连 | `https://api.hunyuan.cloud.tencent.com/v1` | `HUNYUAN_API_KEY` | `hunyuan-vision-1.5-instruct` |
+| Moonshot 直连 | `https://api.moonshot.cn/v1` | `MOONSHOT_API_KEY` | `kimi-k3` |
+| 智谱直连 | `https://open.bigmodel.cn/api/paas/v4` | `ZHIPUAI_API_KEY` | `glm-5v-turbo` |
 
 ## 待验证
 

@@ -47,13 +47,13 @@ final class HostEnv {
     static final String[][] KNOWN = {
         { "TENCENTCLOUD_SECRET_ID", "腾讯云 SecretId(联网搜索)" },
         { "TENCENTCLOUD_SECRET_KEY", "腾讯云 SecretKey(联网搜索)" },
-        // The model routes packages/llm-routes declares. Both are plain
-        // bearer keys for OpenAI-compatible endpoints — NOT the TC3-signed
-        // SecretId pair above, which belongs to a different Tencent product
-        // entirely. Labelling every row is the cheapest way to stop one being
-        // pasted into another's field, which fails as an opaque 401.
-        { "ZHIPUAI_API_KEY", "智谱 GLM API Key" },
-        { "TOKENHUB_API_KEY", "腾讯云 TokenHub API Key(Kimi K3)" },
+        // The model routes packages/llm-routes declares. A plain bearer key
+        // for an OpenAI-compatible endpoint — NOT the TC3-signed SecretId pair
+        // above, which belongs to a different Tencent product entirely, even
+        // though both say "腾讯云". Labelling every row is the cheapest way to
+        // stop one being pasted into another's field, which fails as an opaque
+        // 401.
+        { "TOKENHUB_API_KEY", "腾讯云 TokenHub API Key(模型)" },
         { "DEEPSEEK_API_KEY", "DeepSeek API Key" },
     };
 
