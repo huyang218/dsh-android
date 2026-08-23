@@ -37,6 +37,7 @@ echo "JAVA_HOME=$JAVA_HOME"
 npm test --prefix packages/mobile-layout
 npm test --prefix packages/storage-no-hardlink
 npm test --prefix packages/web-search-tencent
+npm test --prefix packages/tool-doc
 
 ./gradlew --no-daemon :app:assembleRelease
 

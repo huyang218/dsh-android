@@ -35,3 +35,4 @@ jobs:
       - run: npm test --prefix packages/mobile-layout
       - run: npm test --prefix packages/storage-no-hardlink
       - run: npm test --prefix packages/web-search-tencent
+      - run: npm test --prefix packages/tool-doc

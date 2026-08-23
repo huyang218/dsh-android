@@ -182,6 +182,20 @@ HTTP 200  11948 bytes  0.013751s
       TokenHub 是 Bearer API Key,不是 TC3 签名的 SecretId/SecretKey。
       设备实测:反向那条最能说明门二存在——带着图切到 GLM-5.3,客户端当场拒绝
       ("does not accept image input")。
+- [x] **文档处理接进来了(2026-08-23 实测)**:`packages/tool-doc/` 给 agent 加了
+      `read_document`,读 docx/xlsx/pptx。**零依赖**——这三种格式本质是 ZIP + XML,
+      Node 自带 `zlib` 就够,所以 `vendor/seed` 不用动、锁不用重生成、258MB 的载荷
+      不变大、公开 apk 里不多一份 licence。
+      非要一个工具的理由:`tool-fs` 的 `read` 是文本读取器,指给它 .docx **不报错**,
+      而是把 ZIP 字节当文本吐出来,模型拿着噪声推理;砍掉 shell 之后又没有 `unzip`
+      这类退路。
+      设备实测:模型自行并行调用两次 `read_document`,docx 和 xlsx 的内容都对,连
+      故意埋在 B3 的空单元格都体现成了多出来的制表符。
+      **PDF 明确不做**:抽文本要走 xref、解流、切 content stream、按每个字体的
+      ToUnicode CMap 映射字符,而最后一步错了不报错、只给看起来合理的错字符。手搓
+      几百行且对子集内嵌 CID 字体基本无解;`pdfjs-dist` 约 10MB 进种子。两条路代价
+      都不小,所以留着不做而不是做一半——`read_document` 见到 `%PDF-` 会指名报出来。
+      要做哪条是个**待定的决定**,不是待办的活。
 - [ ] **发图还差最后一跳:得有一个原生吃 data URI 的直连厂商接口(2026-08-23 实测)**。
       拿真实 key 在 TokenHub 上逐个试过,一个能收图的都没有:`kimi-k3`、
       `hy-vision-2.0-instruct`、`deepseek/deepseek-v4-flash-vision-exp` 三个都是

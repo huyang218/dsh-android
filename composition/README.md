@@ -16,6 +16,7 @@ packages/mobile-layout/       → $DSH_HOME/profiles/handheld/node_modules/dsh-p
 packages/storage-no-hardlink/ → .../dsh-plugin-storage-no-hardlink/
 packages/web-search-tencent/  → .../dsh-plugin-web-search-tencent/
 packages/llm-routes/          → .../dsh-plugin-llm-routes/
+packages/tool-doc/            → .../dsh-plugin-tool-doc/
 ```
 
 各自顶掉什么:
@@ -26,9 +27,16 @@ packages/llm-routes/          → .../dsh-plugin-llm-routes/
 | `storage-no-hardlink` | 顶掉会话日志和附件两个存储后端的 `link(2)` | [四点七](../docs/feasibility.md#四点七selinux-不给应用做硬链接) |
 | `web-search-tencent` | 多注册一个 search provider 并选中它 | 上游那个要 DeepSeek key |
 | `llm-routes` | 给已挂载但空转的 `llm-pi-ai` 声明模型路由,含能收图的那几条 | [四点八](../docs/feasibility.md) |
+| `tool-doc` | `read_document`:读 docx/xlsx/pptx | `tool-fs` 的 read 是文本读取器,遇到 Office 文件只会吐 ZIP 字节 |
 
-最后一个**没有代码**,只有一份 `cordis.patch.yml`——这不是偷懒,是这层杠杆本来的形状:
-适配器已经在编排里了,缺的只是一条 profile。
+`llm-routes` **没有代码**,只有一份 `cordis.patch.yml`——这不是偷懒,是这层杠杆本来的
+形状:适配器已经在编排里了,缺的只是一条 profile。
+
+`tool-doc` 反过来:它的 `cordis.patch.yml` 是**空数组**,因为工具不住在主机编排里,住在
+agent 预设里。那份空 patch 唯一的作用是满足 `scripts/prepare-runtime.sh` 的准入条件
+(`dsh.bundle.patch`),好让包被 vendor 进 `profiles/handheld/node_modules/`——预设里
+`name: dsh-plugin-tool-doc` 那一行才解析得出来。这条链断了的表现是**建会话直接失败**
+(`agent-preset-invalid`),不是工具不出现。
 
 `dsh-app-boot` 的 `resolveBundleDir` 只认两个锚点:先安装目录,再 profile 目录——
 后者顺着 Node 的父目录查找命中上面这条路径。解析不到就是启动期 fail loud

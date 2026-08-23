@@ -1,0 +1,11 @@
+# 这个包对**主机编排**没有意见,所以这里是空的。
+#
+# 工具不住在主机编排里,住在 agent 预设里:`tool-fs` / `tool-web` 都是
+# composition/agent-presets/handheld/agent.cordis.yml 的行,不是 profile 的行。
+# 这份文件存在的理由只有一个——scripts/prepare-runtime.sh 的准入条件是
+# `dsh.bundle.patch`,有它这个包才会被打进 composition.tar 并落到
+# profiles/handheld/node_modules/,预设那一行才解析得出来。
+#
+# 换句话说:这里空着是对的,别为了"看起来有内容"往里加行。真正挂上工具的那一行
+# 在 agent.cordis.yml 里,叫 tool-doc。
+[]

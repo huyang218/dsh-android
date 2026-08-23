@@ -67,3 +67,22 @@
   config:
     search: true
     fetch: false
+
+# 读 Word / Excel / PowerPoint。本仓库的行,不是上游的。
+#
+# 为什么非要一个工具:`tool-fs` 的 read 是**文本**读取器,指给它一个 .docx 拿到的
+# 是 ZIP 的字节——不报错,就是一堆噪声,然后模型拿着噪声推理。手机上人常留的恰好
+# 就是这类文件,所以这是"文件系统 + LLM + 会话 + 附件"这句话缺的那一半。
+#
+# 解析不加任何依赖:docx/xlsx/pptx 本质是 ZIP + XML,Node 自带的 zlib 就够。
+# 种子不用动、锁不用重生成、公开 apk 里不多一份 licence。
+#
+# 名字是包名而不是 @deepseek-ai/*,所以它得能从 profile 目录解析出来——靠
+# prepare-runtime.sh 把 packages/tool-doc/ vendor 进
+# profiles/handheld/node_modules/dsh-plugin-tool-doc/。这条链断了的表现是建会话
+# 直接失败(agent-preset-invalid),不是工具不出现。
+#
+# PDF 不支持,而且是明确不支持:read_document 见到 %PDF- 会指名报出来,不会把
+# 二进制当文本吐给模型。
+- id: tool-doc
+  name: dsh-plugin-tool-doc
