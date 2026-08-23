@@ -230,6 +230,25 @@ Material 的 DrawerLayout 在做的事。平台每条边最多让出 200dp,所�
 28px——上游是按鼠标做的,那是它的合理选择,但手机上 44px 是地板。量完再改,改完再量:
 现在是 0 个。
 
+
+**第三个教训:一行诊断信息可以决定整页的宽度。**
+
+412px 上实测:消息底部那句 meta("14:17 · Ran for 20s · TTFT 5.9s · 16 tok/s")是 325px
+的 `white-space:nowrap`,composer 下面那条运行统计是 675px 的。两条都不折行,于是各自把
+所在的列撑得比视口宽——而那一列就是会话,**整个聊天区因此横向滚动**。
+
+用户看到的不是"某一行坏了",是**一页的宽度由它最不重要的文字决定**。
+
+修它要两半,少一半就会回来:`min-width:0`(flex item 默认 `min-width:auto`,拒绝缩到
+比内容窄),以及给文字一条出路。
+
+而"出路"选哪种也撞了一次:先给操作行加 `flex-wrap:wrap`,看着像修好了,其实更糟——那一行
+高度写死 28px 且 `overflow:visible`,换到第二行的文字没有被裁,而是**画在了下面的 composer
+上**。改成让 meta 那一段可收缩加省略号,行高不变,时间戳(最有用的部分)留在最前面。
+
+统计那一行没有可用的类名(它自己的是 `_root`),只能靠它包含的分隔符 span 认出来,用了
+`:has()`——Chromium 105+。本项目声明的下限是 80,在那里这条规则被忽略,行为退回原样而不是
+新的坏掉。
 ## 四点五、真正的约束是文件系统,不是 shell
 
 砍掉 shell 之后剩下的是"文件系统 + LLM + 会话 + 附件"。但在 Android 上,
@@ -333,17 +352,126 @@ rename(tmp, final)            → 原子地盖掉我们自己的占位文件
 `logcat` 里不再出现新的 `denied { link }`。这一轮的失败停在
 `llm-deepseek: MISSING_CREDENTIAL`——没配 API key,是另一件事。
 
-## 五、iOS:排除
+## 四点八、发图这条链上有两道门,分别在两个地方
 
-不是难,是不可能:
+需求听上去是一件事("手机上能发图"),实测下来是两件互不相干的事,各自的失败长得完全
+不一样,而且**都不报错**。
 
-- 没有 JIT,V8 跑不了(苹果只给自家 WebKit 开例外)
-- 不允许 `fork`/`exec`
-- 审核条款不允许下发可执行代码
+### 门一:客户端根本没有入口
 
-三条里任意一条单独成立就否决,而这三条都不是工程能绕开的。
+`dsh-client-ui-attachment` 不是一行 cordis,是 `ui-conversation` 直接 import 的 React
+原子库——**没有名册位置可改**。图片只有两个入口:`paste`(读 `clipboardData.files`)和
+document 上的 `drop`。桌面上这两个都够用,手机上一个都没有。
 
-## 六、未解决的风险
+接受判定里没有模型能力这一项:
+
+```js
+canAcceptDrop = !locked && !machineBusy && addImages !== void 0
+```
+
+所以只要把文件递到 document 的 `drop` 上就行,不必碰客户端内部的 `createDraftImages`。
+[`packages/mobile-layout`](../packages/mobile-layout/) 在顶栏加了一个按钮,开一个
+`<input type=file multiple>`,拿到文件后合成一个 `DragEvent('drop')` 派发到 document。
+
+**`multiple` 这个词值一整段。** WebView 侧要接 `onShowFileChooser`,而回调里几乎所有人
+都会写的那句 `WebChromeClient.FileChooserParams.parseResult(resultCode, data)`
+**只读 `intent.getData()`**。多选选择器——`<input multiple>` 要的正是它——把结果放在
+`ClipData` 里,`getData()` 恒为 null,**哪怕只选了一张**。于是 `parseResult` 返回 null,
+页面把 null 读成"用户取消了",`change` 事件永远不触发。
+
+表现:点按钮,相册正常打开,选图,点"添加",回到应用——**什么都没发生**。没有异常,
+`logcat` 干净,页面控制台干净。实测拿到的 intent 是:
+
+```
+result code=-1 data=Intent { flg=0x41 clip={image/* video/* {U(content)}} } picked=null
+```
+
+[`MainActivity.picked()`](../app/src/main/java/io/github/huyang218/dshandroid/MainActivity.java)
+自己解析 `ClipData`,回落到 `getData()`。
+
+### 门二:模型不收图
+
+过了门一,提交时会撞上第二道:**"The current model does not support images; switch to a
+model that does"**。这条不是 bug,`dsh-llm-deepseek` 把 `inputModalities` 写死成
+`["text"]`(`lib/index.js:447`、`:519`),所以**任何 DeepSeek 路由都不可能收图**。
+
+能收图的口是 `dsh-llm-pi-ai`——它的模态来自配置(`inputModalities: [...model.input]`),
+而 **dsh-base 已经把这一行挂上了**,只是零路由空转("mounted dormant ... until a
+`llm-pi-ai:` settings section supplies provider profiles")。
+
+所以"多模态插件"里没有代码要写,只有路由要声明。
+[`packages/llm-routes/`](../packages/llm-routes/) 就是那些路由:一份 `cordis.patch.yml`,
+零 JS。
+
+| 路由 | 型号 | 收图 | key |
+|---|---|---|---|
+| 腾讯云 TokenHub | `deepseek/deepseek-v4-flash-vision-exp` | ✓ 实测 | `TOKENHUB_API_KEY` |
+| 腾讯云 TokenHub | `kimi-k3` | ✓ 实测 | 同上 |
+
+**挑多模态模型时按名字顺推会踩空**:GLM-5.3 是智谱的旗舰,但它"仅支持文本模态",在模型
+总览里归在「文本模型」段;HY-Vision-Video 名字里有 Vision,腾讯的能力表里它的「图片理解」
+写的却是"不支持"(只看视频)。旗舰的那个不一定是能看图的那个,名字带 Vision 的也不一定。
+
+### 门三:消息序列不合网关的规矩,图会被"合并"掉
+
+原本以为门二是最后一道。拿真实 key 打腾讯云 TokenHub,发现还有一道,**长得和门二一模
+一样,但位置完全不同**——而且我第一次归因归错了,值得把错的过程留下。
+
+**第一版结论(错的)**:三个不同型号都 200、流式正常,模型却答"我没有收到任何图片
+附件",Input token 也偏低。据此判定"网关不转内联 base64"。
+
+**它错在只看了一半证据**。桩服务器截下的请求体确实合规,但我没去核对网关自己的字段
+文档。那份文档写着两件事:
+
+- `image_url.url` 接受"图片 HTTP(S) URL **或** `data:image/...;base64,...` 格式的
+  Data URL"——内联 base64 是支持的;
+- `messages` 的**顺序规则是 `[system(可选) → user → assistant → user → ...]`**。
+
+而 dsh 每轮会在用户那条消息**后面**再追加一条 `user` 角色的运行时上下文快照,于是发出去
+的是:
+
+```
+system → user(图 + 文字) → user(运行时上下文) → assistant → …
+```
+
+**两条连续的 user。** 网关对不合规的序列做归一化合并,合并文本时把 `image_url` 那个
+content part 丢掉了。这解释了全部现象,包括"三个不同厂商的模型表现完全一致"——模型无关,
+就说明是网关这一层干的。
+
+**验证方式是关掉那条追加消息**:`dsh-system-prompt` 有 `includeRuntimeContext` 开关。
+关掉之后,同一张图、同一个问题、同一个型号:
+
+> 这张图上有 2 个英文字母:分别是 D 和 H。底色是黑色。
+
+连 H 横梁上那个蓝色小圆点都说了出来。`kimi-k3` 同样通过。开关写在
+[`composition/profiles/handheld/cordis.patch.yml`](../composition/profiles/handheld/cordis.patch.yml),
+代价是 agent 拿不到那份动态快照——快照里的事实(工作区、写权限、审批策略)搬进了预设的
+persona,它进 system 消息,不新开一条 user。
+
+**这一道最难查的地方在于它一声不吭**:客户端放行(门一过了)、`inputModalities` 放行
+(门二过了)、HTTP 200、流式正常、token 计数看着也像那么回事,只有模型在正文里说它看
+不见。没有任何一层会报错。
+
+由此得到的规矩不是"别信聚合网关",而是更钝的一条:**当所有模型都表现一致时,怀疑的对象
+就不该是模型**;以及**把那头的字段文档读完再下结论**——我第一次就是没读完顺序规则那一行。
+
+### 实测(2026-08-22,Android 15 / API 35 模拟器)
+
+选图 → 缩略图进草稿 → 选一个带「看图」的路由 → 发送。附件对象落在
+`attachments/v1/objects/07/0714b34d…`(15658 字节),`tmp/` 干净,**没有 `denied { link }`**
+——这是四点七那两行覆盖第一次被真正的图片走过。这一轮停在
+`llm-pi-ai: no credential for provider route "tokenhub"`,没填 key,是另一件事;填上
+真 key 之后就走到门三了。
+
+反向也验了,而且这条比正向更能说明问题:带着图切到一个只声明 `[text]` 的型号,客户端
+当场拒绝——**"does not accept image input, but this session already contains images"**。
+`input` 那个数组就是**门二**的全部开关。
+
+**过了三道门之后的完整链路(2026-08-23 实测)**:选图 → 缩略图进草稿 → 选
+DS-V4-Flash-Vision → 发送 → 模型答"2 个字母,D 和 H,底色黑色",连 H 横梁上那个蓝点都
+说了出来。`kimi-k3` 同样通过,但 TTFT 38s 对 1.2s。
+
+## 五、未解决的风险
 
 按"会不会推翻方案"排序:
 

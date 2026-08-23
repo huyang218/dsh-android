@@ -299,6 +299,33 @@ button[class],[role="button"][class],input[class],select[class],textarea[class]{
    themselves instead of widening the page. */
 [class*="_scrollBody"] table{display:block;max-width:100%;overflow-x:auto}
 [class*="_scrollBody"] pre{max-width:100%;overflow-x:auto}
+
+/* A line of diagnostics must not set the width of the conversation.
+   Measured at 412px: the message meta span ("14:17 · Ran for 20s · TTFT 5.9s ·
+   16 tok/s") is 325px of white-space:nowrap next to four 44px buttons, and the
+   run-stats row under the composer ("1 turns · 1 steps | LLM 20.9s | TTFT avg
+   … | Cache hit … | Input …") is 675px of it. Neither wraps, so each forces its
+   column wider than the viewport — and because the column is the conversation,
+   the WHOLE chat then scrolls sideways. That is the "变形": not one broken row,
+   a page whose width is decided by its least important text.
+   min-width:0 is half the fix — a flex/grid item defaults to min-width:auto,
+   which refuses to shrink below its content — and letting these two wrap is the
+   other half. */
+[class*="_column"],[class*="_flowItem"]{min-width:0}
+/* The meta span shrinks and ellipsises rather than wrapping. Wrapping was the
+   first attempt and it looked fixed while being worse: the row's height is a
+   hard 28px with overflow:visible, so the second line was not clipped — it was
+   PAINTED OVER the composer below. An ellipsis keeps the row one line high and
+   keeps the part that matters (the timestamp) at the front. */
+div[class*="_actions"]{min-width:0}
+[class*="_timeEnd"]{min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* The stats row has no class worth naming (its own is "_root"), so it is
+   identified by what it contains: the separator spans between the figures.
+   :has() is Chromium 105+; this device's WebView is 124 and Play keeps it
+   current, but the app's stated floor is 80 — where this rule is simply
+   ignored and the row keeps scrolling the page, which is the old behaviour
+   rather than a new break. */
+[class*="_composerStack"] div:has(>[class*="_sep"]){white-space:normal}
 }
 `
 

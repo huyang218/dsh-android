@@ -129,3 +129,26 @@ test('foreign-package overrides stay inside the handheld media query', () => {
   const outsideMedia = sheet.replace(/@media[^{]*\{[\s\S]*\}/, '')
   assert.equal(outsideMedia.includes('[class*='), false, 'a foreign selector escaped the width gate')
 })
+
+test('no metadata one-liner may set the width of the conversation', () => {
+  loadBundle()
+  const sheet = loadBundle.styles.map((tag) => tag.textContent ?? '').find((text) => text.includes('[class*='))
+  assert.ok(sheet, 'the overrides sheet is missing')
+
+  // Measured at 412px: the message meta span is 325px of white-space:nowrap and
+  // the run-stats row under the composer is 675px of it. Neither wraps, so each
+  // one forces its column past the viewport and the WHOLE conversation then
+  // scrolls sideways. Two halves are needed and dropping either brings it back:
+  // min-width:0, because a flex item defaults to min-width:auto and refuses to
+  // shrink below its content; and a way out for the text itself.
+  assert.match(sheet, /\[class\*="_column"\][^{]*\{[^}]*min-width:\s*0/,
+    'the conversation column must be allowed to shrink below its content')
+  assert.match(sheet, /\[class\*="_timeEnd"\]\s*\{[^}]*text-overflow:\s*ellipsis/,
+    'the message meta span must ellipsise rather than widen the row')
+
+  // NOT flex-wrap on the action row. That was the first attempt and it looked
+  // fixed while being worse: the row is a hard 28px with overflow:visible, so
+  // the wrapped line was not clipped — it was painted over the composer below.
+  assert.equal(/\[class\*="_actions"\][^{]*\{[^}]*flex-wrap/.test(sheet), false,
+    'wrapping the action row paints its second line over the composer')
+})
