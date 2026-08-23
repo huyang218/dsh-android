@@ -206,6 +206,10 @@ WebView **上方**加一条:版本号、多少 MB、一个按钮。放上方不�
 10.0.2.2 是模拟器看宿主机的地址,明文已在 `network_security_config` 里放行。桩目录里放
 `latest.json`(GitHub Release 的形状)、一个 `.apk`、一个 `SHA256SUMS` 即可。
 
+这组单测**不进 CI**——CI 那个 job 只跑插件的 `node --test`,几十秒;为一个类拉进
+Android SDK 和 Gradle 会把它变成几分钟,而这组测试只在已经要打 apk 的那条路上有意义。
+`scripts/release.sh` 在发布前跑它。
+
 **实测过的四条(2026-08-23,API 35 模拟器)**:发现新版本并显示;未授权时先要权限而不是
 先下载;下载 → 校验通过 → 系统安装器弹出"是否更新此应用";把 `SHA256SUMS` 改错之后
 同一次下载被拒绝,并且 `cache/update.apk` 被删除。
