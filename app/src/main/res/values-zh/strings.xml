@@ -13,7 +13,6 @@
     <string name="state_failed_timeout">dsh host 在 %1$d 秒内没能起来。</string>
     <string name="state_elapsed">已等待 %1$d 秒</string>
     <string name="keys_title">密钥</string>
-    <string name="keys_intro">这些值会作为环境变量传给 host 进程。dsh 解析插件的凭据时先看自己的凭据库、再看这里——对第三方插件来说,这是唯一能给它密钥的地方。</string>
     <string name="keys_save">保存并重启 host</string>
     <string name="keys_saved">已保存,host 正在重启。</string>
     <string name="keys_open">密钥</string>
@@ -29,4 +28,19 @@
     <string name="update_failed">更新失败:%1$s</string>
     <string name="update_needs_permission">要先在系统里允许本应用安装应用,才能自我更新。</string>
     <string name="update_open_settings">去设置</string>
+    <string name="keys_intro">Agent 要用的密钥。填在这里是因为 host 由本应用启动——这些值不离开设备。\n\n在客户端 Models 页填过的 key 存在 dsh 自己的凭据库里,不会出现在这一页,也不用再填一遍。</string>
+    <string name="keys_group_search">联网搜索 · 腾讯云 wsa</string>
+    <string name="keys_group_models">模型</string>
+    <string name="keys_tc_id">SecretId</string>
+    <string name="keys_tc_purpose">开启联网搜索。不填的话搜索工具仍然在,但每次调用都报缺凭据。</string>
+    <string name="keys_tc_id_source">腾讯云控制台 → 访问管理 → API 密钥管理。和下面的 SecretKey 是一对,另需开通「联网搜索」产品。</string>
+    <string name="keys_tc_key">SecretKey</string>
+    <string name="keys_tc_key_purpose">同一对里的另一半。两个都填才生效。</string>
+    <string name="keys_tc_key_source">同一个页面,跟 SecretId 挨着。</string>
+    <string name="keys_tokenhub">腾讯云 TokenHub</string>
+    <string name="keys_tokenhub_purpose">解锁能看图的模型:DS-V4-Flash-Vision 和 Kimi K3。不填的话选了这两条,发送时会失败。</string>
+    <string name="keys_tokenhub_source">TokenHub 控制台 → API Key。不是上面那对——同一家的另一个产品,单个 bearer key;填串了只会得到一个看不出所以然的 401。</string>
+    <string name="keys_deepseek">DeepSeek</string>
+    <string name="keys_deepseek_purpose">DeepSeek 官方模型(V4-Flash、V4-Pro)。纯文本,这两条永远不收图。</string>
+    <string name="keys_deepseek_source">platform.deepseek.com → API keys。客户端 Models 页写的也是这一个。</string>
 </resources>

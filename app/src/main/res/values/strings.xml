@@ -16,7 +16,6 @@
     <string name="state_failed_timeout">The dsh host did not come up within %1$ds.</string>
     <string name="state_elapsed">%1$ds</string>
     <string name="keys_title">Keys</string>
-    <string name="keys_intro">Values the host process is started with. dsh looks for a plugin\'s credential in its own credential store first and here second — for a third-party plugin, this is the only place it can be given one.</string>
     <string name="keys_save">Save and restart the host</string>
     <string name="keys_saved">Saved. The host is restarting.</string>
     <string name="keys_open">Keys</string>
@@ -34,4 +33,19 @@
     <string name="update_failed">Update failed: %1$s</string>
     <string name="update_needs_permission">Android has to allow this app to install apps before it can update itself.</string>
     <string name="update_open_settings">Settings</string>
+    <string name="keys_intro">Keys the agent needs. Filled in here because the app is what starts the host — nothing here leaves the device.\n\nA key entered on the client\'s own Models page lives in dsh\'s credential store instead: it will not appear here, and does not need entering twice.</string>
+    <string name="keys_group_search">Web search · Tencent Cloud wsa</string>
+    <string name="keys_group_models">Models</string>
+    <string name="keys_tc_id">SecretId</string>
+    <string name="keys_tc_purpose">Turns on web search. Without it the search tool is still there, but every call fails with a missing credential.</string>
+    <string name="keys_tc_id_source">Tencent Cloud console → Access Management → API keys. A PAIR with the SecretKey below, and the 联网搜索 product has to be enabled.</string>
+    <string name="keys_tc_key">SecretKey</string>
+    <string name="keys_tc_key_purpose">The other half of that pair. Both are needed, or neither works.</string>
+    <string name="keys_tc_key_source">From the same page, next to the SecretId.</string>
+    <string name="keys_tokenhub">Tencent Cloud TokenHub</string>
+    <string name="keys_tokenhub_purpose">Unlocks the models that can see images: DS-V4-Flash-Vision and Kimi K3. Without it, picking either one fails at send.</string>
+    <string name="keys_tokenhub_source">TokenHub console → API Key. NOT the SecretId pair above — a different product with a single bearer key; swapping them gives an opaque 401.</string>
+    <string name="keys_deepseek">DeepSeek</string>
+    <string name="keys_deepseek_purpose">The official DeepSeek models (V4-Flash, V4-Pro). Text only — these never accept an image.</string>
+    <string name="keys_deepseek_source">platform.deepseek.com → API keys. The client\'s own Models page writes this same key.</string>
 </resources>

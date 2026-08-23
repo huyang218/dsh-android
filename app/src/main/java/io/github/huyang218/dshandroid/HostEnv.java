@@ -37,24 +37,59 @@ final class HostEnv {
     /** Where the values live; `KEY=value`, one per line, app-private. */
     private static final String FILE_NAME = "host-env.properties";
 
+    /** One row of the keys screen: what it is called, and where it comes from. */
+    static final class Key {
+        /** Environment variable name. */
+        final String name;
+        /** Section this row belongs under; rows sharing one are drawn together. */
+        final int group;
+        /** Human label. */
+        final int label;
+        /**
+         * What filling this in turns on, and what happens if it is left empty.
+         *
+         * <p>This is the line that decides whether someone fills the field at
+         * all. "Where to get it" cannot answer "do I need this?", and a screen
+         * that only answers the second question leaves every row looking
+         * equally mandatory.
+         */
+        final int purpose;
+        /** Where the value comes from. */
+        final int source;
+
+        Key(String name, int group, int label, int purpose, int source) {
+            this.name = name;
+            this.group = group;
+            this.label = label;
+            this.purpose = purpose;
+            this.source = source;
+        }
+    }
+
     /**
      * The variables this app offers to fill in, in display order.
      *
      * <p>A fixed list rather than a free-form editor: every one of these is a
      * name some plugin already looks for, and a typo in a free-form key would
      * produce a credential that silently never resolves.
+     *
+     * <p><b>Grouped, and each row says where its value comes from.</b> The two
+     * Tencent entries are the reason. They look like one thing and are two
+     * different products with two different credential systems — 联网搜索 is a
+     * cloud API signed per request with a SecretId/SecretKey PAIR, TokenHub is
+     * an OpenAI-compatible endpoint taking a single bearer key. Pasting one
+     * into the other's field fails as an opaque 401, which is the kind of
+     * mistake a screen should prevent rather than diagnose.
      */
-    static final String[][] KNOWN = {
-        { "TENCENTCLOUD_SECRET_ID", "腾讯云 SecretId(联网搜索)" },
-        { "TENCENTCLOUD_SECRET_KEY", "腾讯云 SecretKey(联网搜索)" },
-        // The model routes packages/llm-routes declares. A plain bearer key
-        // for an OpenAI-compatible endpoint — NOT the TC3-signed SecretId pair
-        // above, which belongs to a different Tencent product entirely, even
-        // though both say "腾讯云". Labelling every row is the cheapest way to
-        // stop one being pasted into another's field, which fails as an opaque
-        // 401.
-        { "TOKENHUB_API_KEY", "腾讯云 TokenHub API Key(模型)" },
-        { "DEEPSEEK_API_KEY", "DeepSeek API Key" },
+    static final Key[] KNOWN = {
+        new Key("TENCENTCLOUD_SECRET_ID", R.string.keys_group_search,
+                R.string.keys_tc_id, R.string.keys_tc_purpose, R.string.keys_tc_id_source),
+        new Key("TENCENTCLOUD_SECRET_KEY", R.string.keys_group_search,
+                R.string.keys_tc_key, R.string.keys_tc_key_purpose, R.string.keys_tc_key_source),
+        new Key("TOKENHUB_API_KEY", R.string.keys_group_models,
+                R.string.keys_tokenhub, R.string.keys_tokenhub_purpose, R.string.keys_tokenhub_source),
+        new Key("DEEPSEEK_API_KEY", R.string.keys_group_models,
+                R.string.keys_deepseek, R.string.keys_deepseek_purpose, R.string.keys_deepseek_source),
     };
 
     private HostEnv() {}
