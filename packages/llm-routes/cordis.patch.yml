@@ -33,62 +33,43 @@
       # 账号和联网搜索是同一个。**但 key 是两回事**——TokenHub 用它自己控制台里
       # 建的 API Key 走 Bearer,不是联网搜索那对 TC3 签名的 SecretId/SecretKey。
       #
-      # 这条路由上没有一个能收图的型号,而这是实测出来的结论,不是省事:
+      # 两条路由都实测能收图(2026-08-23,API 35 模拟器,真实 key):同一张 64x64
+      # 的应用图标,问"几个字母、什么底色",两个模型都答对了 D、H 和黑色底,连 H
+      # 横梁上那个蓝点都说了出来。
       #
-      #   kimi-k3                              200,流式正常,模型答"我没有收到
-      #                                        任何图片附件",Input 2.1K token
-      #   hy-vision-2.0-instruct               同上,Input 772 token
-      #   deepseek/deepseek-v4-flash-vision-exp 同上,Input 2.5K token
-      #   glm-5v-turbo                         402 endpoint is inactive
-      #   hunyuan-turbos-vision-video-20250728 402,且腾讯的能力表写着它
-      #                                        「图片理解:不支持」(只看视频)
-      #
-      # 而我们发出去的是合规的:把这条路由指到设备本地一个桩服务器截下真实请求
-      # 体,`image_url.url` 是 `data:image/png;base64,…`(20902 字符),`model`、
-      # `Authorization: Bearer` 全对。
-      #
-      # 差别在于形式:TokenHub 的《多模态理解》接口文档把 `image_url.url` 定义成
-      # **图片 URL 链接**(还规定了封装格式和 10MB 上限),而 pi-ai 只会内联
-      # base64、从不发外链。那份文档还把 `role` 限定为 `user` 一种,也就是说它
-      # 根本不是一个通用对话接口,装不下 dsh 的 system + tools + 历史。
-      #
-      # 所以要在这个 app 里发图,多半得另接一个原生吃 data URI 的**直连**厂商
-      # 接口(混元 / Moonshot / 智谱都行,各是一块配置,写在包 README 里)。
+      # **但这件事有个前提,写在 composition/profiles/handheld/cordis.patch.yml
+      # 里**:必须关掉运行时上下文快照。dsh 会在用户那条消息后面再追加一条 `user`
+      # 消息,而 TokenHub 的协议文档把顺序写死成
+      # `[system(可选) → user → assistant → user → ...]`;两条连续的 user 会被
+      # 归一化合并,合并时 image_url 那个 content part 被丢掉。开着它,这两条路由
+      # 都表现为"收不到图"——而那正是我一开始的误判。
       tokenhub:
         displayName: 腾讯云 TokenHub
         apiKeyEnv: TOKENHUB_API_KEY
         api: openai-completions
         baseURL: https://tokenhub.tencentmaas.com/v1
         models:
-          # 这条上的图像声明是**有争议的**,留着记号:2026-08-23 在应用里实测,
-          # 它 200、流式正常、Input 2.5K token,但模型答"我没有收到任何图片附件"
-          # ——也就是上面说的那种"一声不吭"的失败。
-          #
-          # 保留 image 是个明确的选择:它是 TokenHub 上唯一一个既在「语言模型」
-          # 表里(带 Function Calling,装得下 dsh 的 system + tools + 历史)、又
-          # 标着 Vision 的型号,是这个网关上最有希望的一条。要坐实它到底能不能
-          # 收内联图,得绕开 agent 的请求形状单独打一次 —— scratchpad 里的
-          # probe-tokenhub.sh 就是干这个的:一张 64x64 纯红图问它什么颜色,
-          # 说红色就是能收,说看不见就是不能,没有中间答案。
-          #
-          # 如果证实不能收,把下面这行改成 `input: [text]`,别留着——声明了却
-          # 收不到,客户端会放行,人会以为是应用坏了。
+          # 首选:TokenHub 的 DeepSeek 专篇把它列为「多模态理解模型」,而且它在
+          # 「语言模型」表里带 Function Calling,装得下 dsh 的 system + tools +
+          # 历史。实测 TTFT 1.2s。
           - id: deepseek/deepseek-v4-flash-vision-exp
             name: DS-V4-Flash-Vision(看图)
             contextWindow: 1000000
             maxTokens: 384000
             input: [text, image]
 
+          # 也能收图,但慢得多:同一个问题实测 TTFT 38s、21 tok/s,而上面那个是
+          # 1.2s。留着是因为它上下文和输出都更大,长任务时值这个等待。
           - id: kimi-k3
-            name: Kimi K3
+            name: Kimi K3(看图)
             contextWindow: 1000000
             # 文档说 K3 的 max completion tokens 默认 131072,上限更高;这里取
             # 那个默认值,不去够上限。
             maxTokens: 131072
-            input: [text]
+            input: [text, image]
 
 # 模型 ID、上下文与输出长度抄自腾讯云 TokenHub 的模型列表(2026-08-23 读取),
-# 并拿真实 key 打过。
+# 两条路由都拿真实 key 连图带文打通过。
 #
 # ID 错会以 `UNKNOWN_MODEL` 报出来并念出 ID;长度报大了则是一次被服务端拒掉的
 # 超长请求,而消息那时已经落库,会话会反复重试同一个必失败的请求——所以宁可往

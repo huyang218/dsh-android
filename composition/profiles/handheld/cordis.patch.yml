@@ -42,3 +42,34 @@
 - id: agent-presets
   config:
     default: handheld
+
+# 关掉运行时上下文快照。**这一条是为了让发图能用**,不是嫌它啰嗦。
+#
+# dsh 每轮会在用户那条消息**后面**再追加一条 `user` 角色的消息,内容是运行时上下文
+# 快照(文件策略、工作区路径、审批策略)。于是发给模型的消息序列是:
+#
+#   system → user(图 + 文字) → user(运行时上下文) → assistant → …
+#
+# 两条连续的 user。而腾讯云 TokenHub 的《OpenAI Chat Completions 协议字段说明》把
+# 顺序写死成 `[system(可选) → user → assistant → user → ...]`,它对不合规的序列做
+# 归一化合并,而合并时**丢掉了 image_url 那个 content part**。
+#
+# 症状极难归因:HTTP 200、流式正常、token 计数看着也像那么回事,只有模型在正文里说
+# "我没有收到任何图片附件"。我一度据此判定"网关不转内联 base64",是错的——同一份
+# 文档明写着 `image_url.url` 接受 `data:image/...;base64,...`。
+#
+# 实测(2026-08-23,API 35 模拟器,DS-V4-Flash-Vision):打开这个开关,模型看不见图;
+# 关掉,同一张图同一个问题,模型答"2 个字母,D 和 H,底色黑色"——全对。
+#
+# 代价:agent 拿不到那份动态快照了。所以快照里的事实被搬进了预设的 persona(它进
+# system 消息,不新开一条 user)。**这一步不能省**:少了它,agent 不知道自己能写哪里。
+# 代价的另一半是这份事实从此是写死的——本编排里文件策略和审批策略本来就是固定的,
+# 但哪天它们变成可配置的,这里要跟着改。
+#
+# patch 的 override 是整键替换,所以 dsh-base 原本写在这一行的 `persona: ''` 必须
+# 在这里重写一遍,否则它会被这个 config 整个盖掉。
+- id: system-prompt
+  name: '@deepseek-ai/dsh-system-prompt'
+  config:
+    persona: ''
+    includeRuntimeContext: false

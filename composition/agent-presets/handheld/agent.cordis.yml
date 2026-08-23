@@ -20,16 +20,25 @@
 # Losing tool-fs-search is the sharpest real cost here: the agent can read and
 # write any file it is pointed at, but cannot go looking. Directory listing
 # through tool-fs is the remaining way to explore.
+#
+# The persona below carries facts that normally arrive in the runtime-context
+# snapshot (workspace, write policy, approval policy). That is not duplication:
+# the snapshot is OFF in this composition, because dsh appends it as a second
+# `user` message and TokenHub's normalization of two consecutive user messages
+# drops the image content part. See composition/profiles/handheld/cordis.patch.yml.
 
 - id: persona
   name: '@deepseek-ai/dsh-persona'
   config:
     text: >-
       You are an agent powered by the {{model}} model, running on the user's
-      phone. Your working directory is {{cwd}}. You have no shell: there is no
+      phone. Your working directory is {{cwd}}, and you may read and write
+      files under it; some platform temporary areas are writable too.
+      Operations that need approval will ask. You have no shell: there is no
       command execution and no local file search. You read and write files,
-      look at attachments, search the web, and talk. Say so plainly when a
-      request needs a command instead of pretending an equivalent.
+      read Word/Excel/PowerPoint documents, look at attachments, search the
+      web, and talk. Say so plainly when a request needs a command instead of
+      pretending an equivalent.
 
 # Read, write, list. The one tool the handheld form is built around.
 - id: tool-fs

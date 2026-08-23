@@ -196,20 +196,19 @@ HTTP 200  11948 bytes  0.013751s
       几百行且对子集内嵌 CID 字体基本无解;`pdfjs-dist` 约 10MB 进种子。两条路代价
       都不小,所以留着不做而不是做一半——`read_document` 见到 `%PDF-` 会指名报出来。
       要做哪条是个**待定的决定**,不是待办的活。
-- [ ] **发图还差最后一跳:得有一个原生吃 data URI 的直连厂商接口(2026-08-23 实测)**。
-      拿真实 key 在 TokenHub 上逐个试过,一个能收图的都没有:`kimi-k3`、
-      `hy-vision-2.0-instruct`、`deepseek/deepseek-v4-flash-vision-exp` 三个都是
-      200、流式正常、模型答"我没有收到任何图片附件"(Input 分别 2.1K / 772 / 2.5K
-      token);`glm-5v-turbo` 和 `hunyuan-turbos-vision-video-20250728` 是
-      `402 endpoint is inactive`,而后者腾讯的能力表本来就写着「图片理解:不支持」。
-      **我们发的是对的**:把路由指到设备本地桩服务器截下真实请求体,
-      `image_url.url` 是 `data:image/png;base64,…`(20902 字符),`model` 和
-      `Authorization: Bearer` 全对。
-      差别在形式:TokenHub《多模态理解》把 `image_url.url` 定义成**图片 URL 链接**,
-      而 pi-ai 只内联 base64、从不发外链;那份文档还把 `role` 限定为 `user` 一种,
-      压根装不下 dsh 的 system + tools + 历史。
-      现成的下一步是智谱直连(`glm-5v-turbo`,配置已在仓库里,缺一个智谱 key),
-      Moonshot 直连和混元直连各是一块配置的事。
+- [x] **发图整条链通了(2026-08-23 实测)**:三道门,最后一道最难查。
+      dsh 每轮会在用户消息**后面**再追加一条 `user` 角色的运行时上下文快照,于是序列是
+      `system → user(图+文) → user(上下文) → assistant`——**两条连续的 user**。而
+      TokenHub 的协议文档把顺序写死成 `[system(可选) → user → assistant → user → ...]`,
+      对不合规序列做归一化合并时,把 `image_url` 那个 content part 丢掉了。
+      表现:HTTP 200、流式正常、token 计数看着也像那么回事,只有模型说"我没有收到任何
+      图片附件"。**我一度据此判定"网关不转内联 base64",错了**——同一份文档明写着
+      `image_url.url` 接受 data URL。
+      解法是关掉 `dsh-system-prompt` 的 `includeRuntimeContext`(写在
+      `composition/profiles/handheld/cordis.patch.yml`),代价是丢掉那份动态快照,所以
+      快照里的事实搬进了预设 persona——它进 system 消息,不新开一条 user。
+      关掉之后:同一张图同一个问题,模型答"2 个字母,D 和 H,底色黑色",连 H 横梁上那个
+      蓝点都说了出来;`kimi-k3` 同样通过(TTFT 38s vs 1.2s)。
 - [ ] **名册层(最便宜)**:哪些 `ui-*` 压根不进名册——`ui-directory-picker-native`
       仍是候选。~~`ui-settings-plugin-inventory`、settings 的桌面部分~~ 已不必砍:
       覆盖之后它们在手机上是能用的。不适配,是不出现——但能适配就不用砍。

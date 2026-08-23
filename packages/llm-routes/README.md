@@ -27,66 +27,45 @@ routes ... until a `llm-pi-ai:` settings section supplies provider profiles"。
 
 | 路由 | 型号 | 收图 | key |
 |---|---|---|---|
-| 腾讯云 TokenHub | `deepseek/deepseek-v4-flash-vision-exp` | ⚠ 存疑 | `TOKENHUB_API_KEY` |
-| 腾讯云 TokenHub | `kimi-k3` | ✗(已实测) | 同上 |
+| 腾讯云 TokenHub | `deepseek/deepseek-v4-flash-vision-exp` | ✓ 实测 | `TOKENHUB_API_KEY` |
+| 腾讯云 TokenHub | `kimi-k3` | ✓ 实测 | 同上 |
 
 一个 key,一条路由。上游的 DeepSeek 官方路由不受影响,仍然在。
 
-**这条路由上没有一个型号确定能收图,而这是实测出来的。** 2026-08-23 在模拟器上拿真实
-key 逐个试过:
+两个都验过:同一张 64×64 的应用图标,问"几个字母、什么底色",都答对了 D、H 和黑色底,
+连 H 横梁上那个蓝点都说了出来。首选 DS-V4-Flash-Vision——TTFT 1.2s,而 K3 是 38s。
 
-| 型号 | 结果 |
-|---|---|
-| `kimi-k3` | 200、流式正常,模型答"我没有收到任何图片附件",Input 2.1K token |
-| `hy-vision-2.0-instruct` | 同上,Input 772 token |
-| `deepseek/deepseek-v4-flash-vision-exp` | 同上,Input 2.5K token(**仍保留 image 声明**,见下) |
-| `glm-5v-turbo` | `402 endpoint is inactive`(账号未开通) |
-| `hunyuan-turbos-vision-video-20250728`(HY-Vision-Video) | `402`,且腾讯能力表写着它「图片理解:不支持」 |
+## 收图有一个前提,不在这个包里
 
-而我们发出去的东西是合规的——把这条路由指到设备本地的桩服务器截下真实请求体,
-`image_url.url` 是 `data:image/png;base64,…`(20902 字符),`model` 和
-`Authorization: Bearer` 全对。
+**必须关掉运行时上下文快照**,开关在
+[`composition/profiles/handheld/cordis.patch.yml`](../../composition/profiles/handheld/cordis.patch.yml)。
 
-差别在形式:TokenHub 的《多模态理解》接口把 `image_url.url` 定义成**图片 URL 链接**
-(还规定封装格式和 10MB 上限),而 pi-ai 只会内联 base64、从不发外链
-(`pi-ai/dist/api/openai-completions.js:821`)。那份文档还把 `role` 限定为 `user` 一种,
-也就是说它压根不是通用对话接口,装不下 dsh 的 system + tools + 历史。
+dsh 每轮会在用户那条消息**后面**再追加一条 `user` 角色的运行时上下文,于是消息序列是
+`system → user(图+文) → user(上下文) → assistant`——**两条连续的 user**。而 TokenHub
+的《OpenAI Chat Completions 协议字段说明》把顺序写死成
+`[system(可选) → user → assistant → user → ...]`,它对不合规的序列做归一化合并,
+合并时把 `image_url` 那个 content part 丢掉了。
 
-**要接一个原生吃 data URI 的直连厂商接口,各是一块配置的事:**
+症状是 HTTP 200、流式正常、token 计数看着也像那么回事,只有模型在正文里说"我没有收到
+任何图片附件"。**我一度据此判定"TokenHub 不转内联 base64",那是错的**——同一份文档
+明写着 `image_url.url` 接受 `data:image/...;base64,...`。关掉那条追加消息后,同一张图
+同一个问题,模型立刻答对。
 
-| 想用 | baseURL | apiKeyEnv | 型号 |
-|---|---|---|---|
-| 混元直连 | `https://api.hunyuan.cloud.tencent.com/v1` | `HUNYUAN_API_KEY` | `hunyuan-vision-1.5-instruct` |
-| Moonshot 直连 | `https://api.moonshot.cn/v1` | `MOONSHOT_API_KEY` | `kimi-k3` |
-| 智谱直连 | `https://open.bigmodel.cn/api/paas/v4` | `ZHIPUAI_API_KEY` | `glm-5v-turbo` |
+代价和补偿写在那份 patch 的注释里。
 
-## 待验证
+## 没验的部分
 
-型号 ID 与长度抄自各家公开文档(2026-08-22 读取),**没有拿真实 key 打过**。验的办法:
-填好 key,在模型选择器里选一个带「看图」的,附一张图发出去。
+上下文与输出长度抄自 TokenHub 的模型列表,没有单独压测过边界。长度报大了的表现是一次
+超长请求被服务端拒掉,而消息那时已经落库,会话会反复重试同一个必失败的请求——所以文件
+里写的是文档数字**往下取**,不往上凑。
 
-- ID 错 → provider 报 `UNKNOWN_MODEL`,会把 ID 念出来。
-- 长度报大了 → 一次超长请求被服务端拒掉,而消息已经落库,会话会反复重试同一个必失败的
-  请求。所以文件里写的是文档数字**往下取**,不往上凑。
+另外这几个型号当初是在**错误前提**下判"不收图"的,后来没有重测,现在的状态是未知而不是
+否定:`hy-vision-2.0-instruct`、`glm-5v-turbo`(那次是 402,控制台未开通)、
+`hunyuan-turbos-vision-video-20250728`(402;另外腾讯的能力表写着它「图片理解:不支持」,
+这条与前提无关,仍然成立)。
 
 ## 加一条路由
 
 在 `cordis.patch.yml` 的 `providers:` 下再加一块就行,不用碰别的地方。要收图就写
-`input: [text, image]`——**这一个数组是图片能不能发出去的唯一开关**。
-
-## 那条存疑的路由
-
-`deepseek/deepseek-v4-flash-vision-exp` 是 TokenHub 上唯一一个既在「语言模型」表里
-(带 Function Calling,装得下 dsh 的 system + tools + 历史)、又标着 Vision 的型号,
-所以它是这个网关上最有希望的一条,声明先留着。
-
-但实测它没看见图。要分清是网关不转内联图、还是 dsh 的请求形状(system + tools + 历史)
-让网关走了别的路,得绕开 agent 单独打一次:
-
-```bash
-scratchpad/probe-tokenhub.sh deepseek/deepseek-v4-flash-vision-exp
-```
-
-一张 64×64 纯红图问它什么颜色。**说红色就是能收,说看不见就是不能,没有中间答案。**
-若证实不能收,把 `input` 改成 `[text]` —— 声明了却收不到,客户端会放行,人会以为是应用
-坏了。
+`input: [text, image]`——**这一个数组是客户端那道门的唯一开关**,但它只管客户端放不放行;
+那头收不收得到,得实测。
