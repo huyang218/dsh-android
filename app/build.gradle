@@ -25,6 +25,12 @@ android {
         versionName '0.2.0-dev'
 
         buildConfigField 'String', 'DEV_URL', "\"${project.findProperty('dsh.devUrl') ?: 'http://10.0.2.2:3099'}\""
+
+        // Where self-update looks. Overridable (`-Pdsh.releasesUrl=...`) so the
+        // update path can be exercised against a stub without publishing a
+        // release — the alternative is testing it once, in production, on the
+        // one code path that ends in an install prompt.
+        buildConfigField 'String', 'RELEASES_URL', "\"${project.findProperty('dsh.releasesUrl') ?: 'https://api.github.com/repos/huyang218/dsh-android/releases/latest'}\""
     }
 
     buildFeatures {
@@ -79,4 +85,24 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+
+    testOptions {
+        unitTests {
+            // org.json ships as stubs that throw in unit tests. UpdateCheck
+            // parses a GitHub release body with it, and a test that cannot
+            // parse would be a test of the stub, not of the code.
+            returnDefaultValues = false
+            includeAndroidResources = false
+        }
+    }
+}
+
+dependencies {
+    // The only dependency in the app, and only for tests. UpdateCheck decides
+    // whether to offer a person a 130 MB download and an install prompt; that
+    // decision is exactly the kind that is silently wrong, so it gets a test
+    // harness even though nothing else in the Java here has one.
+    testImplementation 'junit:junit:4.13.2'
+    // The real org.json, because the Android stub throws in unit tests.
+    testImplementation 'org.json:json:20240303'
 }

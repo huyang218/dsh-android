@@ -4,4 +4,5 @@
     <color name="shell_text">#F5F7FA</color>
     <color name="shell_text_dim">#98A2AF</color>
     <color name="shell_accent">#6BA1FF</color>
+    <color name="shell_accent_bg">#16233A</color>
 </resources>

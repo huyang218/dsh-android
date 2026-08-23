@@ -27,6 +27,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -115,6 +116,15 @@ public class MainActivity extends Activity {
     private long launchedAt;
     /** The page's pending `<input type=file>`; non-null only while the picker is up. */
     private ValueCallback<Uri[]> pendingFiles;
+
+    /** The update row and its two mutable pieces; null until the client is shown. */
+    private View updateBar;
+    private TextView updateText;
+    private Button updateAction;
+    /** The release currently being offered, kept so a retry does not re-check. */
+    private UpdateCheck.Available available;
+    /** One check per launch: a person who dismissed the bar should not see it again on rotate. */
+    private boolean updateChecked;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -275,9 +285,147 @@ public class MainActivity extends Activity {
             }
         });
 
-        setContentView(web);
+        // The update bar sits ABOVE the client rather than over it. An overlay
+        // would land on the client's own topbar, where the drawer and the
+        // attach button are; a row that pushes the WebView down cannot cover a
+        // control the person is reaching for.
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        updateBar = buildUpdateBar();
+        updateBar.setVisibility(View.GONE);
+        root.addView(updateBar, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        root.addView(web, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        setContentView(root);
         web.loadUrl(HOST_URL);
         claimLeftEdgeGesture();
+        checkForUpdate();
+    }
+
+    /**
+     * The row that appears when a newer release exists: what it is, how big,
+     * and one button. Built once, hidden until there is something to say.
+     */
+    private View buildUpdateBar() {
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
+        bar.setBackgroundColor(color(R.color.shell_accent_bg));
+        int pad = dp(12);
+        bar.setPadding(pad, dp(8), pad, dp(8));
+
+        updateText = new TextView(this);
+        updateText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        updateText.setTextColor(color(R.color.shell_text));
+        bar.addView(updateText, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+
+        updateAction = new Button(this);
+        updateAction.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        updateAction.setMinHeight(dp(44));
+        bar.addView(updateAction);
+
+        Button dismiss = new Button(this);
+        dismiss.setText(getString(R.string.update_dismiss));
+        dismiss.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        dismiss.setMinHeight(dp(44));
+        dismiss.setOnClickListener(v -> updateBar.setVisibility(View.GONE));
+        bar.addView(dismiss);
+        return bar;
+    }
+
+    /**
+     * Ask GitHub whether there is a newer release, once per launch.
+     *
+     * <p>Off the main thread and deliberately silent about failures: no
+     * network, a rate limit, a repo that moved — none of that is something the
+     * person came here to read, and none of it stops the app working. The only
+     * outcome that reaches the screen is "there is a newer version".
+     *
+     * <p>Not on first run: the runtime is unpacking several hundred megabytes
+     * and competing with it for IO to fetch an apk the person cannot install
+     * until that finishes would be rude.
+     */
+    private void checkForUpdate() {
+        if (updateChecked) return;
+        updateChecked = true;
+        new Thread(() -> {
+            final UpdateCheck.Available found;
+            try {
+                found = Updater.check(BuildConfig.RELEASES_URL, BuildConfig.VERSION_NAME);
+            } catch (IOException | RuntimeException e) {
+                return;
+            }
+            if (found == null || stopped) return;
+            ui.post(() -> offerUpdate(found));
+        }).start();
+    }
+
+    /** Show the offer. Nothing is downloaded until the person asks for it. */
+    private void offerUpdate(UpdateCheck.Available found) {
+        available = found;
+        updateText.setText(getString(R.string.update_available, found.version, megabytes(found.bytes)));
+        updateAction.setText(getString(R.string.update_download));
+        updateAction.setEnabled(true);
+        updateAction.setOnClickListener(v -> startDownload(found));
+        updateBar.setVisibility(View.VISIBLE);
+    }
+
+    /**
+     * Download, then hand off to the platform installer.
+     *
+     * <p>The permission check comes first because starting an install without
+     * it fails with nothing on screen: from API 26 the "install unknown apps"
+     * switch is per-app and off by default. Spending 130 MB of the person's
+     * data before discovering that would be the worst order to do this in.
+     */
+    private void startDownload(UpdateCheck.Available found) {
+        if (!Updater.canRequestInstall(this)) {
+            updateText.setText(getString(R.string.update_needs_permission));
+            updateAction.setText(getString(R.string.update_open_settings));
+            updateAction.setOnClickListener(v -> {
+                try {
+                    startActivity(Updater.installPermissionSettings(this));
+                } catch (RuntimeException e) {
+                    updateText.setText(getString(R.string.update_failed, String.valueOf(e.getMessage())));
+                }
+            });
+            return;
+        }
+        updateAction.setEnabled(false);
+        updateAction.setText(getString(R.string.update_downloading));
+        new Thread(() -> {
+            final File apk;
+            try {
+                apk = Updater.download(getCacheDir(), found, (read, total) -> {
+                    int percent = total > 0 ? (int) (read * 100 / total) : 0;
+                    ui.post(() -> updateText.setText(
+                            getString(R.string.update_progress, found.version, percent)));
+                });
+            } catch (IOException | RuntimeException e) {
+                final String why = String.valueOf(e.getMessage());
+                ui.post(() -> {
+                    updateText.setText(getString(R.string.update_failed, why));
+                    updateAction.setEnabled(true);
+                    updateAction.setText(getString(R.string.update_download));
+                });
+                return;
+            }
+            if (stopped) return;
+            ui.post(() -> {
+                updateText.setText(getString(R.string.update_ready, found.version));
+                updateAction.setEnabled(true);
+                updateAction.setText(getString(R.string.update_install));
+                updateAction.setOnClickListener(v -> Updater.install(this, apk));
+                Updater.install(this, apk);
+            });
+        }).start();
+    }
+
+    /** One decimal place is enough to decide whether to do this on mobile data. */
+    private static String megabytes(long bytes) {
+        return String.format(java.util.Locale.US, "%.0f", bytes / 1048576.0);
     }
 
     /**

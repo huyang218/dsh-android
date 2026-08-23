@@ -39,6 +39,11 @@ npm test --prefix packages/storage-no-hardlink
 npm test --prefix packages/web-search-tencent
 npm test --prefix packages/tool-doc
 
+# The one piece of Java with a test harness: UpdateCheck decides whether to
+# offer a person a 130 MB download and an install prompt, and getting it
+# backwards would offer a DOWNGRADE that Android then refuses.
+./gradlew --no-daemon :app:testDebugUnitTest
+
 ./gradlew --no-daemon :app:assembleRelease
 
 APK=$ROOT/app/build/outputs/apk/release/app-release.apk
@@ -67,6 +72,18 @@ OUT=$ROOT/app/build/outputs/apk/release/dsh-android-$VERSION.apk
 cp "$APK" "$OUT"
 echo "产物:$OUT ($(wc -c < "$OUT") 字节)"
 
+# SHA256SUMS,给应用内自更新用。
+#
+# 它防的是**传输损坏**,不是恶意替换——摘要和 apk 来自同一个 Release,能改一个
+# 的人也能改另一个。挡住恶意替换的是签名:Android 拒绝安装与已装应用签名不同的
+# 包,而那把 key 从不离开这台机器。这行的价值是让一次半截的下载在安装前就失败,
+# 而不是变成"解析软件包时出现问题"。
+#
+# 名字必须正好是 SHA256SUMS:UpdateCheck 按这个名字找 asset。
+SUMS=$ROOT/app/build/outputs/apk/release/SHA256SUMS
+( cd "$(dirname "$OUT")" && shasum -a 256 "$(basename "$OUT")" ) > "$SUMS"
+cat "$SUMS"
+
 NOTES=$(mktemp)
 cat > "$NOTES" <<'NOTES_EOF'
 非官方项目,不上架,安装需要打开"未知来源"。仅 arm64 设备。
@@ -87,5 +104,5 @@ if [ "$DRY_RUN" = "--dry-run" ]; then
   exit 0
 fi
 
-gh release create "$TAG" --title "$TAG" --notes-file "$NOTES" "$OUT"
+gh release create "$TAG" --title "$TAG" --notes-file "$NOTES" "$OUT" "$SUMS"
 rm -f "$NOTES"

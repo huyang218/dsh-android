@@ -4,4 +4,6 @@
     <color name="shell_text">#12161C</color>
     <color name="shell_text_dim">#5B6470</color>
     <color name="shell_accent">#2F6FE4</color>
+    <!-- The update row. Tinted, not alarming: a new version is news, not a fault. -->
+    <color name="shell_accent_bg">#E8F0FE</color>
 </resources>

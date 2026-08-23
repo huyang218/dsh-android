@@ -2,6 +2,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!--
+      Self-update: this app checks GitHub Releases and hands a downloaded apk
+      to the platform installer, which shows its own confirmation. Distribution
+      is GitHub-direct (docs/packaging.md), so there is no store to notice a
+      new version on the user's behalf.
+
+      From API 26 this permission alone is not enough — the per-app "install
+      unknown apps" switch is off by default, and the app checks for it and
+      points at the settings screen rather than starting an install that would
+      fail with nothing on screen.
+    -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- The host is a long-lived process the user must be able to see. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
@@ -34,6 +46,18 @@
             android:exported="true"
             android:label="@string/keys_title"
             android:windowSoftInputMode="adjustResize" />
+
+        <!--
+          Serves the downloaded apk to the platform installer, which is a
+          different process and cannot open a file in app-private storage.
+          `exported=false` plus `grantUriPermissions` means nothing reaches it
+          except through the one-shot read grant on the install intent.
+        -->
+        <provider
+            android:name=".UpdateProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true" />
 
         <!-- The dsh host itself: a Node process this app owns. -->
         <service

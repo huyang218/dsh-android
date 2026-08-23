@@ -21,4 +21,17 @@
     <string name="keys_saved">Saved. The host is restarting.</string>
     <string name="keys_open">Keys</string>
     <string name="keys_storage_note">Stored in this app\'s private directory, unencrypted — the same protection the session logs and dsh\'s own credential store already have on this device.</string>
+
+    <!-- Self-update. GitHub-direct distribution means nothing else will tell
+         the person a new version exists. -->
+    <string name="update_available">A newer version is available: %1$s (%2$s MB)</string>
+    <string name="update_download">Update</string>
+    <string name="update_downloading">Downloading…</string>
+    <string name="update_progress">Downloading %1$s · %2$d%%</string>
+    <string name="update_ready">%1$s downloaded. Android will ask before installing.</string>
+    <string name="update_install">Install</string>
+    <string name="update_dismiss">Not now</string>
+    <string name="update_failed">Update failed: %1$s</string>
+    <string name="update_needs_permission">Android has to allow this app to install apps before it can update itself.</string>
+    <string name="update_open_settings">Settings</string>
 </resources>

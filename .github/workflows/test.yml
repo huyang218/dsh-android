@@ -36,3 +36,9 @@ jobs:
       - run: npm test --prefix packages/storage-no-hardlink
       - run: npm test --prefix packages/web-search-tencent
       - run: npm test --prefix packages/tool-doc
+      # The app's only Java tests: the self-update version comparison.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - run: ./gradlew :app:testDebugUnitTest
