@@ -36,9 +36,9 @@ jobs:
       - run: npm test --prefix packages/storage-no-hardlink
       - run: npm test --prefix packages/web-search-tencent
       - run: npm test --prefix packages/tool-doc
-      # The app's only Java tests: the self-update version comparison.
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: '17'
-      - run: ./gradlew :app:testDebugUnitTest
+      #
+      # The app's Java tests (UpdateCheck) are NOT here. They need the Android
+      # SDK and a Gradle run, which turns a twenty-second job into a multi-
+      # minute one — for a suite that only ever runs on the path that already
+      # builds the apk. scripts/release.sh runs them before it publishes, and
+      # that is the moment they matter.
